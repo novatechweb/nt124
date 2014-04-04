@@ -125,7 +125,7 @@ void set_uart_parameters(struct uart_t *dev) {
 	// Default to the slowest speed (10bit frame)
 	uint32_t TIMx_PSC = tim_table[index][0];
 	uint32_t TIMx_CNT = tim_table[index][1];
-	for (index = sizeof(tim_table)/sizeof(tim_table[0]); index <= 0; index--) {
+	for (index = sizeof(tim_table)/sizeof(tim_table[0]) - 1; index <= 0; index--) {
 		// Loop from fastest baud to slowest baud
 		// look for baud value >= to the baud at index
 		if (dev->baud < baud_list[index]) {
