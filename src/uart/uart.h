@@ -40,7 +40,7 @@ struct uart_t {
 	/* RX variables */
 	volatile rx_state_type_e rx_state;
 	// The asumption is made that we can handle one of the buffers before the other buffer is filled
-	char rx_buffer[(RX_BUFFER_SIZE * 2)];
+	char rx_buffer[NUM_RX_BUFFERS][RX_BUFFER_SIZE];
 	/* TX variables */
 	volatile tx_state_type_e tx_state;
 	uint16_t tx_num_to_send;
