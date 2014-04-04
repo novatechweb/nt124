@@ -482,10 +482,10 @@ inline static void uart_RX(struct uart_t *dev) {
 	} else {
 		// clear the flag if not already cleared
 		USART_SR(dev->hardware->usart) &= ~USART_SR_RXNE;
-//		timer_disable_counter(dev->hardware->timer);
-//		timer_set_counter(dev->hardware->timer, 0);
-//		timer_enable_counter(dev->hardware->timer);
-//		timer_enable_irq(dev->hardware->timer, TIM_DIER_UIE);
+		timer_disable_counter(dev->hardware->timer);
+		timer_set_counter(dev->hardware->timer, 0);
+		timer_enable_counter(dev->hardware->timer);
+		timer_enable_irq(dev->hardware->timer, TIM_DIER_UIE);
 	}
 	nvic_enable_irq(dev->hardware->irqn);
 }
@@ -493,10 +493,11 @@ void UART1_RX_ISR(void) { uart_RX(&uarts[0]); }
 void UART2_RX_ISR(void) { uart_RX(&uarts[1]); }
 void UART3_RX_ISR(void) { uart_RX(&uarts[2]); }
 void UART4_RX_ISR(void) { uart_RX(&uarts[3]); }
-/*
+
 inline static void uart_RX_timer(struct uart_t *dev, uint8_t ep) {
 	uint16_t num_read;
 	char *data;
+	uint32_t dma_count;
 	// stop RX
 	dma_disable_channel(dev->hardware->rx.dma, dev->hardware->rx.channel);
 	nvic_disable_irq(dev->hardware->rx.dma_irqn);
@@ -504,12 +505,13 @@ inline static void uart_RX_timer(struct uart_t *dev, uint8_t ep) {
 	dev->rx_state |= RX_NEED_SERVICE;
 	timer_clear_flag(dev->hardware->timer, TIM_SR_UIF);
 	timer_disable_irq(dev->hardware->timer, TIM_DIER_UIE);
+	dma_count = DMA_CNDTR(dev->hardware->rx.dma, dev->hardware->rx.channel);
 	// gather information to send received data
-	if (DMA_CNDTR(dev->hardware->rx.dma, dev->hardware->rx.channel) <= RX_BUFFER_SIZE) {
-		num_read = DMA_CNDTR(dev->hardware->rx.dma, dev->hardware->rx.channel);
+	if (dma_count <= RX_BUFFER_SIZE) {
+		num_read = RX_BUFFER_SIZE - dma_count;
 		data = &dev->rx_buffer[0];
 	} else {
-		num_read = DMA_CNDTR(dev->hardware->rx.dma, dev->hardware->rx.channel) - RX_BUFFER_SIZE;
+		num_read = (RX_BUFFER_SIZE * 2) - dma_count);
 		data = &dev->rx_buffer[RX_BUFFER_SIZE];
 	}
 	// start RX DMA
@@ -527,4 +529,3 @@ void UART1_RX_TIMER(void) { uart_RX_timer(&uarts[0], ACM0_ENDPOINT); }
 void UART2_RX_TIMER(void) { uart_RX_timer(&uarts[1], ACM3_ENDPOINT); }
 void UART3_RX_TIMER(void) { uart_RX_timer(&uarts[2], ACM2_ENDPOINT); }
 void UART4_RX_TIMER(void) { uart_RX_timer(&uarts[3], ACM1_ENDPOINT); }
-*/
