@@ -505,14 +505,22 @@ inline static void uart_RX_timer(struct uart_t *dev, uint8_t ep) {
 	dev->rx_state |= RX_NEED_SERVICE;
 	timer_clear_flag(dev->hardware->timer, TIM_SR_UIF);
 	timer_disable_irq(dev->hardware->timer, TIM_DIER_UIE);
-	dma_count = DMA_CNDTR(dev->hardware->rx.dma, dev->hardware->rx.channel);
 	// gather information to send received data
-	if (dma_count <= RX_BUFFER_SIZE) {
+	dma_count = DMA_CNDTR(dev->hardware->rx.dma, dev->hardware->rx.channel);
+	if (dma_count < RX_BUFFER_SIZE) {
+		// Finished using the higher DMA
 		num_read = RX_BUFFER_SIZE - dma_count;
-		data = &dev->rx_buffer[0];
-	} else {
-		num_read = (RX_BUFFER_SIZE * 2) - dma_count;
+		// transfer the higher DMA buffer
 		data = &dev->rx_buffer[RX_BUFFER_SIZE];
+		// Set DMA to next use the lower buffer
+		DMA_CNDTR(dev->hardware->rx.dma, dev->hardware->rx.channel) = 0;
+	} else {
+		// Finished using the lower DMA
+		num_read = (RX_BUFFER_SIZE * 2) - dma_count;
+		// transfer the lower DMA buffer
+		data = &dev->rx_buffer[0];
+		// Set DMA to next use the higher buffer
+		DMA_CNDTR(dev->hardware->rx.dma, dev->hardware->rx.channel) = RX_BUFFER_SIZE;
 	}
 	// start RX DMA
 	nvic_enable_irq(dev->hardware->rx.dma_irqn);
