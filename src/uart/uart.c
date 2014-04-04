@@ -328,7 +328,7 @@ inline static void usbuart_usb_out_cb(struct uart_t *uart, usbd_device *dev, uin
 	}
 	len = usbd_ep_read_packet(dev, ep, uart->buffers[uart->tx_curr_buffer_index], CDCACM_PACKET_SIZE);
 	uart->tx_curr_buffer_index = ((uart->tx_curr_buffer_index + 1) % NUM_TX_BUFFERS);
-	if (uart->tx_state != TX_WORKING) {
+	if ((uart->tx_state != TX_WORKING) && (len)) {
 		uart->tx_dma_buffer_index = ((uart->tx_dma_buffer_index + 1) % NUM_TX_BUFFERS);
 		// disable the DMA channel (It should already be disabled when the state is set to TX_IDLE)
 		dma_disable_channel(uart->hardware->tx.dma, uart->hardware->tx.channel);
@@ -343,7 +343,7 @@ inline static void usbuart_usb_out_cb(struct uart_t *uart, usbd_device *dev, uin
 		nvic_enable_irq(uart->hardware->tx.dma_irqn);
 		// enable DMA channel
 		dma_enable_channel(uart->hardware->tx.dma, uart->hardware->tx.channel);
-	} else {
+	} else if (len) {
 		uart->tx_num_to_send = len;
 	}
 }
