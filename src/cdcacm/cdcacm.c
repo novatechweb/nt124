@@ -667,6 +667,8 @@ void cdcacm_init(void) {
 	// reset USB hardware and re-enumerate USB
 	usb_platform_init();
 
+	// Enable the CRC clock
+	rcc_peripheral_enable_clock(&RCC_AHBENR,  RCC_AHBENR_CRCEN);
 	// Initilize the USB stack
 	get_dev_unique_id(serial_no);
 	usbdev = usbd_init(&USB_DRIVER, &dev, &config, usb_strings,
