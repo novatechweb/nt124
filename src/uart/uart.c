@@ -347,10 +347,10 @@ inline static void usbuart_usb_out_cb(struct uart_t *uart, usbd_device *dev, uin
 		uart->tx_num_to_send = len;
 	}
 }
-void usbuart_usb_out_cb1(usbd_device *dev, uint8_t ep) { usbuart_usb_out_cb(&uarts[ACM0_UART_INDEX], dev, ACM0_ENDPOINT); (void) ep; }
-void usbuart_usb_out_cb2(usbd_device *dev, uint8_t ep) { usbuart_usb_out_cb(&uarts[ACM3_UART_INDEX], dev, ACM1_ENDPOINT); (void) ep; }
-void usbuart_usb_out_cb3(usbd_device *dev, uint8_t ep) { usbuart_usb_out_cb(&uarts[ACM2_UART_INDEX], dev, ACM2_ENDPOINT); (void) ep; }
-void usbuart_usb_out_cb4(usbd_device *dev, uint8_t ep) { usbuart_usb_out_cb(&uarts[ACM1_UART_INDEX], dev, ACM3_ENDPOINT); (void) ep; }
+void usbuart_usb_out_cb1(usbd_device *dev, uint8_t ep) { usbuart_usb_out_cb(&uarts[0], dev, ACM0_ENDPOINT); (void) ep; }
+void usbuart_usb_out_cb2(usbd_device *dev, uint8_t ep) { usbuart_usb_out_cb(&uarts[1], dev, ACM3_ENDPOINT); (void) ep; }
+void usbuart_usb_out_cb3(usbd_device *dev, uint8_t ep) { usbuart_usb_out_cb(&uarts[2], dev, ACM2_ENDPOINT); (void) ep; }
+void usbuart_usb_out_cb4(usbd_device *dev, uint8_t ep) { usbuart_usb_out_cb(&uarts[3], dev, ACM1_ENDPOINT); (void) ep; }
 void usbuart_usb_in_cb(usbd_device *dev, uint8_t ep) { (void) dev; (void) ep; }
 void usbuart_set_line_coding(struct uart_t *dev, struct usb_cdc_line_coding *coding) {
 	dev->baud = coding->dwDTERate;
@@ -416,10 +416,10 @@ inline static void uart_TX_DMA_empty(struct uart_t *dev) {
 		dev->tx_state = TX_ERROR;
 	}
 }
-void UART1_TX_DMA_ISR(void) { uart_TX_DMA_empty(&uarts[ACM0_UART_INDEX]); }
-void UART2_TX_DMA_ISR(void) { uart_TX_DMA_empty(&uarts[ACM3_UART_INDEX]); }
-void UART3_TX_DMA_ISR(void) { uart_TX_DMA_empty(&uarts[ACM2_UART_INDEX]); }
-void UART4_TX_DMA_ISR(void) { uart_TX_DMA_empty(&uarts[ACM1_UART_INDEX]); }
+void UART1_TX_DMA_ISR(void) { uart_TX_DMA_empty(&uarts[0]); }
+void UART2_TX_DMA_ISR(void) { uart_TX_DMA_empty(&uarts[1]); }
+void UART3_TX_DMA_ISR(void) { uart_TX_DMA_empty(&uarts[2]); }
+void UART4_TX_DMA_ISR(void) { uart_TX_DMA_empty(&uarts[3]); }
 
 
 
@@ -455,10 +455,10 @@ inline static void uart_RX_DMA(struct uart_t *dev, uint8_t ep) {
 		usart_disable(dev->hardware->usart);
 	}
 }
-void UART1_RX_DMA_ISR(void) { uart_RX_DMA(&uarts[ACM0_UART_INDEX], ACM0_ENDPOINT); }
-void UART2_RX_DMA_ISR(void) { uart_RX_DMA(&uarts[ACM3_UART_INDEX], ACM3_ENDPOINT); }
-void UART3_RX_DMA_ISR(void) { uart_RX_DMA(&uarts[ACM2_UART_INDEX], ACM2_ENDPOINT); }
-void UART4_RX_DMA_ISR(void) { uart_RX_DMA(&uarts[ACM1_UART_INDEX], ACM1_ENDPOINT); }
+void UART1_RX_DMA_ISR(void) { uart_RX_DMA(&uarts[0], ACM0_ENDPOINT); }
+void UART2_RX_DMA_ISR(void) { uart_RX_DMA(&uarts[1], ACM3_ENDPOINT); }
+void UART3_RX_DMA_ISR(void) { uart_RX_DMA(&uarts[2], ACM2_ENDPOINT); }
+void UART4_RX_DMA_ISR(void) { uart_RX_DMA(&uarts[3], ACM1_ENDPOINT); }
 
 // Start/restart the timer for the RX delayed processing.
 // Whenever a new character is received the timer starts over
@@ -481,18 +481,18 @@ inline static void uart_RX(struct uart_t *dev) {
 	} else {
 		// clear the flag if not already cleared
 		USART_SR(dev->hardware->usart) &= ~USART_SR_RXNE;
-		timer_disable_counter(dev->hardware->timer);
-		timer_set_counter(dev->hardware->timer, 0);
-		timer_enable_counter(dev->hardware->timer);
-		timer_enable_irq(dev->hardware->timer, TIM_DIER_UIE);
+//		timer_disable_counter(dev->hardware->timer);
+//		timer_set_counter(dev->hardware->timer, 0);
+//		timer_enable_counter(dev->hardware->timer);
+//		timer_enable_irq(dev->hardware->timer, TIM_DIER_UIE);
 	}
 	nvic_enable_irq(dev->hardware->irqn);
 }
-void UART1_RX_ISR(void) { uart_RX(&uarts[ACM0_UART_INDEX]); }
-void UART2_RX_ISR(void) { uart_RX(&uarts[ACM3_UART_INDEX]); }
-void UART3_RX_ISR(void) { uart_RX(&uarts[ACM2_UART_INDEX]); }
-void UART4_RX_ISR(void) { uart_RX(&uarts[ACM1_UART_INDEX]); }
-
+void UART1_RX_ISR(void) { uart_RX(&uarts[0]); }
+void UART2_RX_ISR(void) { uart_RX(&uarts[1]); }
+void UART3_RX_ISR(void) { uart_RX(&uarts[2]); }
+void UART4_RX_ISR(void) { uart_RX(&uarts[3]); }
+/*
 inline static void uart_RX_timer(struct uart_t *dev, uint8_t ep) {
 	uint16_t num_read;
 	char *data;
@@ -522,7 +522,8 @@ inline static void uart_RX_timer(struct uart_t *dev, uint8_t ep) {
 	// Enable RX interrupts once more
 	nvic_enable_irq(dev->hardware->irqn);
 }
-void UART1_RX_TIMER(void) { uart_RX_timer(&uarts[ACM0_UART_INDEX], ACM0_ENDPOINT); }
-void UART2_RX_TIMER(void) { uart_RX_timer(&uarts[ACM3_UART_INDEX], ACM3_ENDPOINT); }
-void UART3_RX_TIMER(void) { uart_RX_timer(&uarts[ACM2_UART_INDEX], ACM2_ENDPOINT); }
-void UART4_RX_TIMER(void) { uart_RX_timer(&uarts[ACM1_UART_INDEX], ACM1_ENDPOINT); }
+void UART1_RX_TIMER(void) { uart_RX_timer(&uarts[0], ACM0_ENDPOINT); }
+void UART2_RX_TIMER(void) { uart_RX_timer(&uarts[1], ACM3_ENDPOINT); }
+void UART3_RX_TIMER(void) { uart_RX_timer(&uarts[2], ACM2_ENDPOINT); }
+void UART4_RX_TIMER(void) { uart_RX_timer(&uarts[3], ACM1_ENDPOINT); }
+*/
