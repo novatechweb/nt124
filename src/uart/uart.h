@@ -49,7 +49,7 @@ struct uart_t {
 	char buffers[NUM_TX_BUFFERS][TX_BUFFER_SIZE];
 	/* Hardware register values for UART */
 	struct platform_uart_t *hardware;
-} __attribute__((packed));
+};
 
 void uart_init(void);
 void usbuart_set_line_coding(struct uart_t *dev, struct usb_cdc_line_coding *coding);

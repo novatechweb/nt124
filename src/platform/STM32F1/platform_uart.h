@@ -29,7 +29,7 @@ struct platform_RX_t {
 	const uint16_t pin;
 	const uint8_t channel;
 	const uint8_t dma_irqn;
-} __attribute__((packed));
+};
 struct platform_TX_t {
 	const uint32_t port;
 	const uint32_t dma;
@@ -37,17 +37,17 @@ struct platform_TX_t {
 	const uint8_t cnf;
 	const uint8_t dma_irqn;
 	const uint8_t channel;
-} __attribute__((packed));
+};
 struct platform_input_pins_t {
 	const uint32_t port;
 	const uint16_t pin;
 	const uint8_t irqn;
-} __attribute__((packed));
+};
 struct platform_output_pins_t {
 	const uint32_t port;
 	const uint16_t pin;
 	const uint8_t cnf;
-} __attribute__((packed));
+};
 struct platform_uart_t {
 	const uint32_t usart;
 	const uint32_t timer;
@@ -61,6 +61,6 @@ struct platform_uart_t {
 	struct platform_TX_t tx;
 	struct platform_output_pins_t rts;
 	struct platform_output_pins_t dtr;
-} __attribute__((packed));
+};
 
 #endif /* __PLATFORM_UART_H_ */
