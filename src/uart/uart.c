@@ -228,8 +228,8 @@ static void setup_uart_device(struct uart_t *dev) {
 		dma_set_priority(dev->hardware->rx.dma, dev->hardware->rx.channel, DMA_CCR_PL_HIGH); // (BIT 12:13)
 		//			 (BIT 14) mem2mem_mode disabled
 	}
-	{	// setup timmer for RX
-		// start/restart the timmer back at a count of 0
+	{	// setup timer for RX
+		// start/restart the timer back at a count of 0
 		timer_reset(dev->hardware->timer);
 		timer_set_mode(dev->hardware->timer, TIM_CR1_CKD_CK_INT, TIM_CR1_CMS_EDGE, TIM_CR1_DIR_UP);
 		/* TODO: Consider setting these
@@ -461,8 +461,8 @@ void UART3_RX_DMA_ISR(void) { uart_RX_DMA(&uarts[ACM2_UART_INDEX], ACM2_ENDPOINT
 void UART4_RX_DMA_ISR(void) { uart_RX_DMA(&uarts[ACM1_UART_INDEX], ACM1_ENDPOINT); }
 
 // Start/restart the timer for the RX delayed processing.
-// Whenever a new character is recieved the timmer starts over
-// When the timmer overflows the data in the DMA will be processed (Or when the DMA buffer is filled)
+// Whenever a new character is received the timer starts over
+// When the timer overflows the data in the DMA will be processed (Or when the DMA buffer is filled)
 inline static void uart_RX(struct uart_t *dev) {
 	nvic_disable_irq(dev->hardware->irqn);
 	uint32_t uart_sr = USART_SR(dev->hardware->usart);
@@ -503,7 +503,7 @@ inline static void uart_RX_timer(struct uart_t *dev, uint8_t ep) {
 	dev->rx_state |= RX_NEED_SERVICE;
 	timer_clear_flag(dev->hardware->timer, TIM_SR_UIF);
 	timer_disable_irq(dev->hardware->timer, TIM_DIER_UIE);
-	// gather information to send recieved data
+	// gather information to send received data
 	if (DMA_CNDTR(dev->hardware->rx.dma, dev->hardware->rx.channel) <= RX_BUFFER_SIZE) {
 		num_read = DMA_CNDTR(dev->hardware->rx.dma, dev->hardware->rx.channel);
 		data = &dev->rx_buffer[0];
@@ -515,7 +515,7 @@ inline static void uart_RX_timer(struct uart_t *dev, uint8_t ep) {
 	nvic_enable_irq(dev->hardware->rx.dma_irqn);
 	dma_enable_channel(dev->hardware->rx.dma, dev->hardware->rx.channel);
 	if (cdcacm_get_config()) {
-		// give the recieved data to USBACM
+		// give the received data to USBACM
 		usbd_ep_write_packet(usbdev, ep, data, num_read);
 	}
 	dev->rx_state &= ~RX_NEED_SERVICE;
