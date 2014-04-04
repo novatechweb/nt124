@@ -511,7 +511,7 @@ inline static void uart_RX_timer(struct uart_t *dev, uint8_t ep) {
 		num_read = RX_BUFFER_SIZE - dma_count;
 		data = &dev->rx_buffer[0];
 	} else {
-		num_read = (RX_BUFFER_SIZE * 2) - dma_count);
+		num_read = (RX_BUFFER_SIZE * 2) - dma_count;
 		data = &dev->rx_buffer[RX_BUFFER_SIZE];
 	}
 	// start RX DMA
