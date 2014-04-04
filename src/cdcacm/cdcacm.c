@@ -32,6 +32,7 @@
 #include <libopencm3/usb/usbd.h>
 #include <libopencm3/usb/cdc.h>
 #include <libopencm3/cm3/scb.h>
+#include <libopencm3/stm32/rcc.h>
 
 #include <uart.h>
 
