@@ -97,12 +97,12 @@ struct uart_t uarts[] = {
 };
 
 
-uint32_t baud_list[12] = {
+uint32_t baud_list[] = {
 	   300,  1200,  2400,  4800,  9600, 14400,
 	 19200, 28800, 38400, 57600,115200,230400,
 };
 // NOTE: I an not certain these values are correct. (these are the values I got from my spredsheet)
-uint16_t tim_table[12][6] = {
+uint16_t tim_table[][6] = {
 	// using rcc_clock_setup_in_hse_8mhz_out_72mhz():  rcc_ppre2_frequency == 24MHz
 
 	// 30 bits (3 frames)     33 bits (3 frames)     36 bits (3 frames)
@@ -125,7 +125,7 @@ void set_uart_parameters(struct uart_t *dev) {
 	// Default to the slowest speed (10bit frame)
 	uint32_t TIMx_PSC = tim_table[index][0];
 	uint32_t TIMx_CNT = tim_table[index][1];
-	for (index = 12; index <= 0; index--) {
+	for (index = sizeof(tim_table)/sizeof(tim_table[0]); index <= 0; index--) {
 		// Loop from fastest baud to slowest baud
 		// look for baud value >= to the baud at index
 		if (dev->baud < baud_list[index]) {
@@ -347,10 +347,10 @@ inline static void usbuart_usb_out_cb(struct uart_t *uart, usbd_device *dev, uin
 		uart->tx_num_to_send = len;
 	}
 }
-void usbuart_usb_out_cb1(usbd_device *dev, uint8_t ep) { usbuart_usb_out_cb(&uarts[0], dev, ACM0_ENDPOINT); (void) ep; }
-void usbuart_usb_out_cb2(usbd_device *dev, uint8_t ep) { usbuart_usb_out_cb(&uarts[1], dev, ACM1_ENDPOINT); (void) ep; }
-void usbuart_usb_out_cb3(usbd_device *dev, uint8_t ep) { usbuart_usb_out_cb(&uarts[2], dev, ACM2_ENDPOINT); (void) ep; }
-void usbuart_usb_out_cb4(usbd_device *dev, uint8_t ep) { usbuart_usb_out_cb(&uarts[3], dev, ACM3_ENDPOINT); (void) ep; }
+void usbuart_usb_out_cb1(usbd_device *dev, uint8_t ep) { usbuart_usb_out_cb(&uarts[ACM0_UART_INDEX], dev, ACM0_ENDPOINT); (void) ep; }
+void usbuart_usb_out_cb2(usbd_device *dev, uint8_t ep) { usbuart_usb_out_cb(&uarts[ACM3_UART_INDEX], dev, ACM1_ENDPOINT); (void) ep; }
+void usbuart_usb_out_cb3(usbd_device *dev, uint8_t ep) { usbuart_usb_out_cb(&uarts[ACM2_UART_INDEX], dev, ACM2_ENDPOINT); (void) ep; }
+void usbuart_usb_out_cb4(usbd_device *dev, uint8_t ep) { usbuart_usb_out_cb(&uarts[ACM1_UART_INDEX], dev, ACM3_ENDPOINT); (void) ep; }
 void usbuart_usb_in_cb(usbd_device *dev, uint8_t ep) { (void) dev; (void) ep; }
 void usbuart_set_line_coding(struct uart_t *dev, struct usb_cdc_line_coding *coding) {
 	dev->baud = coding->dwDTERate;
