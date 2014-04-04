@@ -32,8 +32,8 @@ LDFLAGS += \
 	-L../libopencm3/lib \
 
 # uncomment the next two lines to use the USB_DFU bootloader
-#CFLAGS += -DBOOTLOADER
-#LDFLAGS += -Wl,-Ttext=0x8002000 -Wl,--defsym,_stack=0x20005000
+CFLAGS += -DBOOTLOADER
+LDFLAGS += -Wl,-Ttext=0x8002000 -Wl,--defsym,_stack=0x20005000
 
 Q := @
 # Program rules
