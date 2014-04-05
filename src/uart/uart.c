@@ -265,26 +265,7 @@ static void setup_uart_device(struct uart_t *dev) {
 	dma_enable_channel(dev->hardware->rx.dma, dev->hardware->rx.channel);
 }
 void uart_init(void) {
-	/*	// TODO: Look into using this to reset the device
-		rcc_peripheral_reset(&RCC_APB2RSTR, RCC_APB2RSTR_TIM1RST);
-		rcc_peripheral_clear_reset(&RCC_APB2RSTR, RCC_APB2RSTR_TIM1RST);
-	*/
-	// Enable clocks all four uarts (USART1)
-	rcc_peripheral_enable_clock(&RCC_APB2ENR,
-		RCC_APB2ENR_USART1EN);
-	// Enable clocks all four uarts (USART2, USART3, UART4)
-	rcc_peripheral_enable_clock(&RCC_APB1ENR,
-		RCC_APB1ENR_USART2EN | RCC_APB1ENR_USART3EN |
-		RCC_APB1ENR_UART4EN);
-	// Enable DMA channel 1 & 2
-	rcc_peripheral_enable_clock(&RCC_AHBENR,
-		RCC_AHBENR_DMA1EN | RCC_AHBENR_DMA2EN);
-	// Enable Timmers for all four uarts (tim2, tim3, tim4, tim5)
-	rcc_peripheral_enable_clock(&RCC_APB1ENR,
-		RCC_APB1ENR_TIM2EN | RCC_APB1ENR_TIM3EN |
-		RCC_APB1ENR_TIM4EN | RCC_APB1ENR_TIM5EN);
-	// Alternate function IO clock enable
-	rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_AFIOEN);
+	uart_platform_init();
 	// Setup each uart and pins
 	{
 		int i;

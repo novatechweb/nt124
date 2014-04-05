@@ -222,3 +222,22 @@ struct platform_uart_t uart4 = {
 		.cnf = GPIO_CNF_OUTPUT_PUSHPULL,
 	},
 };
+
+void uart_platform_init(void) {
+	// Enable clocks all four uarts (USART1)
+	rcc_peripheral_enable_clock(&RCC_APB2ENR,
+		RCC_APB2ENR_USART1EN);
+	// Enable clocks all four uarts (USART2, USART3, UART4)
+	rcc_peripheral_enable_clock(&RCC_APB1ENR,
+		RCC_APB1ENR_USART2EN | RCC_APB1ENR_USART3EN |
+		RCC_APB1ENR_UART4EN);
+	// Enable DMA channel 1 & 2
+	rcc_peripheral_enable_clock(&RCC_AHBENR,
+		RCC_AHBENR_DMA1EN | RCC_AHBENR_DMA2EN);
+	// Enable Timmers for all four uarts (tim2, tim3, tim4, tim5)
+	rcc_peripheral_enable_clock(&RCC_APB1ENR,
+		RCC_APB1ENR_TIM2EN | RCC_APB1ENR_TIM3EN |
+		RCC_APB1ENR_TIM4EN | RCC_APB1ENR_TIM5EN);
+	// Alternate function IO clock enable
+	rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_AFIOEN);
+}

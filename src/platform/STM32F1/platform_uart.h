@@ -63,4 +63,6 @@ struct platform_uart_t {
 	struct platform_output_pins_t dtr;
 };
 
+void uart_platform_init(void);
+
 #endif /* __PLATFORM_UART_H_ */
