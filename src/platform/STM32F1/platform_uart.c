@@ -224,6 +224,12 @@ struct platform_uart_t uart4 = {
 };
 
 void uart_platform_init(void) {
+	// reset the hardware
+	rcc_peripheral_reset(&RCC_APB1RSTR,
+		RCC_APB1RSTR_UART4RST | RCC_APB1RSTR_USART3RST | RCC_APB1RSTR_USART2RST |
+		RCC_APB1RSTR_TIM5RST | RCC_APB1RSTR_TIM4RST |
+		RCC_APB1RSTR_TIM3RST | RCC_APB1RSTR_TIM2RST);
+	rcc_peripheral_reset(&RCC_APB2RSTR, RCC_APB2RSTR_USART1RST | RCC_APB2RSTR_TIM1RST | RCC_APB2RSTR_AFIORST);
 	// Enable clocks all four uarts (USART1)
 	rcc_peripheral_enable_clock(&RCC_APB2ENR,
 		RCC_APB2ENR_USART1EN);
