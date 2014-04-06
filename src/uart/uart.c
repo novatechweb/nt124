@@ -416,6 +416,7 @@ void UART4_TX_DMA_ISR(void) { uart_TX_DMA_empty(&uarts[3]); }
 inline static void uart_RX_DMA(struct uart_t *dev, uint8_t ep) {
 	dma_disable_channel(dev->hardware->rx.dma, dev->hardware->rx.channel);
 	nvic_disable_irq(dev->hardware->rx.dma_irqn);
+	nvic_disable_irq(dev->hardware->timer_irqn);
 	if (dma_get_interrupt_flag(dev->hardware->rx.dma, dev->hardware->rx.channel, DMA_TCIF)) {
 		uint8_t rx_dma_index = 0;
 		dma_clear_interrupt_flags(dev->hardware->rx.dma, dev->hardware->rx.channel, DMA_TCIF);
@@ -441,13 +442,18 @@ inline static void uart_RX_DMA(struct uart_t *dev, uint8_t ep) {
 		dev->rx_state |= RX_DMA_ERROR;
 		usart_disable(dev->hardware->usart);
 	}
+	// clear and disable the timer
+	timer_clear_flag(dev->hardware->timer, TIM_SR_UIF);
+	timer_disable_irq(dev->hardware->timer, TIM_DIER_UIE);
+	// IRQ# for timer is always enabled
+	nvic_enable_irq(dev->hardware->timer_irqn);
 }
 void UART1_RX_DMA_ISR(void) { uart_RX_DMA(&uarts[0], ACM0_ENDPOINT); }
 void UART2_RX_DMA_ISR(void) { uart_RX_DMA(&uarts[1], ACM3_ENDPOINT); }
 void UART3_RX_DMA_ISR(void) { uart_RX_DMA(&uarts[2], ACM2_ENDPOINT); }
 void UART4_RX_DMA_ISR(void) { uart_RX_DMA(&uarts[3], ACM1_ENDPOINT); }
 
-// Start/restart the timer for the RX delayed processing.
+// (re)start the timer for the RX delayed processing.
 // Whenever a new character is received the timer starts over
 // When the timer overflows the data in the DMA will be processed (Or when the DMA buffer is filled)
 inline static void uart_RX(struct uart_t *dev) {
@@ -466,12 +472,17 @@ inline static void uart_RX(struct uart_t *dev) {
 		if (uart_sr & USART_SR_ORE)
 			dev->rx_state |= RX_OR_ERROR;
 	} else {
-		// clear the flag if not already cleared
+		nvic_disable_irq(dev->hardware->timer_irqn);
+		// clear the flags if not already cleared
+		timer_clear_flag(dev->hardware->timer, TIM_SR_UIF);
 		USART_SR(dev->hardware->usart) &= ~USART_SR_RXNE;
+		// (re)start timer
 		timer_disable_counter(dev->hardware->timer);
 		timer_set_counter(dev->hardware->timer, 0);
 		timer_enable_counter(dev->hardware->timer);
 		timer_enable_irq(dev->hardware->timer, TIM_DIER_UIE);
+		// IRQ# for timer is always enabled
+		nvic_enable_irq(dev->hardware->timer_irqn);
 	}
 	nvic_enable_irq(dev->hardware->irqn);
 }
