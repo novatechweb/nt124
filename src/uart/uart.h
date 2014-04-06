@@ -30,6 +30,17 @@ typedef enum {
 	TX_TYPE_UNKNOWN = TX_TYPE_COUNT
 } tx_state_type_e;
 
+typedef enum {
+	RTS_MASK = (1 << 0),
+	CTS_MASK = (1 << 1),
+	DTR_MASK = (1 << 2),
+	DSR_MASK = (1 << 3),
+	DCD_MASK = (1 << 4),
+	RI_MASK = (1 << 5),
+	CONTROL_TYPE_COUNT,
+	CONTROL_TYPE_UNKNOWN = CONTROL_TYPE_COUNT
+} control_type_e;
+
 // the format of the usarts/uarts buffer data structure
 struct uart_t {
 	uint32_t baud;
@@ -37,6 +48,7 @@ struct uart_t {
 	uint32_t parity;
 	uint32_t flowcontrol;
 	uint8_t bits;
+	control_type_e control_lines;
 	/* RX variables */
 	volatile rx_state_type_e rx_state;
 	// The asumption is made that we can handle one of the buffers before the other buffer is filled
