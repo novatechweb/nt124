@@ -16,14 +16,14 @@
 
 /*** Interrupt priorities ***/
 /* Interrupt priorities.  Low numbers are high priority.
- * For now USART1 preempts USB which may spin while buffer is drained.
- * TIM3 is used for traceswo capture and must be highest priority.
+ * ((1 << 7) + ?) are assigned to the system interrupts.
  */
-#define IRQ_PRI_USB         ( 2 << 4)
-
-#define IRQ_PRI_UART        (1 << 4)
-#define IRQ_PRI_UART_TIM    (1 << 4)
-#define IRQ_PRI_UART_RX_DMA (1 << 3)
-#define IRQ_PRI_UART_TX_DMA (1 << 5)
+#define IRQ_PRI_UART_TX_DMA ((1 << 0) + 0)
+#define IRQ_PRI_EXT_INT     ((1 << 1) + 0)
+#define IRQ_PRI_UART_RX_DMA ((1 << 2) + 0)
+#define IRQ_PRI_UART_TIM    ((1 << 3) + 0)
+#define IRQ_PRI_USB         ((1 << 4) + 0)
+#define IRQ_PRI_UART        ((1 << 5) + 0)
+#define IRQ_PRI_SYSTICK     ((1 << 6) + 0)
 
 #endif /* __PLATFORM_H_ */
