@@ -283,30 +283,6 @@ void uart_init(void) {
 
 
 
-// If the uart TX DMA is needing a new buffer set the supplied buffer to be used and enable DMA to start sending the data
-/*size_t dma_write(struct uart_t *dev, char *data, size_t size) {
-	nvic_disable_irq(dev->hardware->tx.dma_irqn);
-	if (dev->tx_state != TX_IDLE) {
-		// DMA is still working ELSE (DMA Error)
-		if (dev->tx_state == TX_WORKING)
-			nvic_enable_irq(dev->hardware->tx.dma_irqn);
-		return 0;
-	}
-	// disable the DMA channel (It should already be disabled when the state is set to TX_IDLE)
-	dma_disable_channel(dev->hardware->tx.dma, dev->hardware->tx.channel);
-	// set: Source, Destination, and Amount (DMA channel must be disabled)
-	dma_set_peripheral_address(dev->hardware->tx.dma, dev->hardware->tx.channel, (uint32_t)&USART_DR(dev->hardware->usart));
-	dma_set_memory_address(dev->hardware->tx.dma, dev->hardware->tx.channel, (uint32_t)(data));
-	dma_set_number_of_data(dev->hardware->tx.dma, dev->hardware->tx.channel, size);
-	// set to (Working)
-	dev->tx_state = TX_WORKING;
-	// enable the uart TX DMA interrupt
-	usart_enable_tx_dma(dev->hardware->usart);
-	nvic_enable_irq(dev->hardware->tx.dma_irqn);
-	// enable DMA channel
-	dma_enable_channel(dev->hardware->tx.dma, dev->hardware->tx.channel);
-	return size;
-}*/
 inline static void usbuart_usb_out_cb(struct uart_t *uart, usbd_device *dev, uint8_t ep) {
 	int len;
 
