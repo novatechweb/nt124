@@ -18,15 +18,15 @@
 #define INITIAL_PARITY USART_PARITY_NONE
 #define INITIAL_FLOW_CONTROL USART_FLOWCONTROL_NONE
 
+
+// The data structure for the usb .....
+extern usbd_device *usbdev;
+
 // The data structures that hold the hardware configuration for each usart/uart
 extern struct platform_uart_t uart1;
 extern struct platform_uart_t uart2;
 extern struct platform_uart_t uart3;
 extern struct platform_uart_t uart4;
-
-// The data structure for the usb .....
-extern usbd_device *usbdev;
-
 
 struct uart_t uarts[] = {
 	{   	/* UART1 : ACM PORT1 */
@@ -165,13 +165,28 @@ void set_uart_parameters(struct uart_t *dev) {
 	usart_set_mode(dev->hardware->usart, USART_MODE_TX_RX);
 	usart_enable(dev->hardware->usart);
 }
-static void setup_uart_device(struct uart_t *dev) {
+static void disable_uart_irqs(struct uart_t *dev) {
 	// disable all the interrupts
 	nvic_disable_irq(dev->hardware->tx.dma_irqn);
 	nvic_disable_irq(dev->hardware->rx.dma_irqn);
-	nvic_disable_irq(dev->hardware->timer_irqn);
 	nvic_disable_irq(dev->hardware->irqn);
+	nvic_disable_irq(dev->hardware->timer_irqn);
+}
+static void setup_uart_starting_interrupts(struct uart_t *dev) {
+	// set which interrupts to use
+	usart_disable_tx_dma(dev->hardware->usart);
+	usart_enable_rx_dma(dev->hardware->usart);
+	usart_enable_rx_interrupt(dev->hardware->usart);
+	usart_enable_error_interrupt(dev->hardware->usart);
+	timer_disable_irq(dev->hardware->timer, TIM_DIER_UIE);
 
+	// Enable Starting Interrupt(s)
+	nvic_disable_irq(dev->hardware->tx.dma_irqn);
+	nvic_enable_irq(dev->hardware->rx.dma_irqn);
+	nvic_enable_irq(dev->hardware->irqn);
+	nvic_enable_irq(dev->hardware->timer_irqn);
+}
+static void setup_uart_device(struct uart_t *dev) {
 	// Setup the buffers
 	dev->rx_state = RX_SERVICED;
 	dev->tx_state = TX_IDLE;
@@ -249,29 +264,21 @@ static void setup_uart_device(struct uart_t *dev) {
 	nvic_set_priority(dev->hardware->tx.dma_irqn, IRQ_PRI_UART_TX_DMA);
 	nvic_set_priority(dev->hardware->rx.dma_irqn, IRQ_PRI_UART_RX_DMA);
 	
-	// set which interrupts to use
-	usart_disable_tx_dma(dev->hardware->usart);
-	usart_enable_rx_dma(dev->hardware->usart);
-	usart_enable_rx_interrupt(dev->hardware->usart);
-	usart_enable_error_interrupt(dev->hardware->usart);
-	timer_disable_irq(dev->hardware->timer, TIM_DIER_UIE);
-
-	// Enable Starting Interrupt(s)
-	nvic_enable_irq(dev->hardware->irqn);
-	nvic_enable_irq(dev->hardware->rx.dma_irqn);
-	nvic_enable_irq(dev->hardware->timer_irqn);
-	
 	// enable uart RX DMA channel
 	dma_enable_channel(dev->hardware->rx.dma, dev->hardware->rx.channel);
 }
 void uart_init(void) {
+	int i;
+	// disable irqs
+	for (i = 0; i < 4; i++)
+		disable_uart_irqs(&uarts[i]);
 	uart_platform_init();
 	// Setup each uart and pins
-	{
-		int i;
-		for (i = 0; i < 4; i++)
-			setup_uart_device(&uarts[i]);
-	}
+	for (i = 0; i < 4; i++)
+		setup_uart_device(&uarts[i]);
+	// setup interrupts
+	for (i = 0; i < 4; i++)
+		setup_uart_starting_interrupts(&uarts[i]);
 }
 
 
