@@ -667,8 +667,6 @@ static char *get_dev_unique_id(char *s)
 }
 
 void cdcacm_init(void) {
-	// reset that the USB is not configured
-	configured = 0;
 	// reset USB hardware and re-enumerate USB
 	usb_platform_init();
 

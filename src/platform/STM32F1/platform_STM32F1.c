@@ -21,11 +21,6 @@ void platform_init(void) {
 	// Setup oscillator
 	rcc_clock_setup_in_hse_8mhz_out_72mhz();
 
-	// reset the hardware
-	rcc_peripheral_reset(&RCC_APB2RSTR, 
-		RCC_APB2RSTR_IOPDRST | RCC_APB2RSTR_IOPCRST |
-		RCC_APB2RSTR_IOPBRST | RCC_APB2RSTR_IOPARST);
-
 #ifdef BOOTLOADER
 	// Relocate interrupt vector table here
 	SCB_VTOR = 0x2000;

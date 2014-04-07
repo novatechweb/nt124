@@ -30,9 +30,11 @@ void usb_platform_init(void)
 {
 	// Note: http://www.usbmadesimple.co.uk/ums_3.htm
 	
-	// reset the hardware
-	rcc_peripheral_reset(&RCC_APB1RSTR, RCC_APB1RSTR_USBRST);
-	rcc_peripheral_disable_clock(&RCC_AHBENR,  RCC_AHBENR_CRCEN);
+	// TODO: Make certain the USB hardware is disabled
+	/*	// TODO: Look into using this to reset the device
+		rcc_peripheral_reset(&RCC_APB2RSTR, RCC_APB2RSTR_TIM1RST);
+		rcc_peripheral_clear_reset(&RCC_APB2RSTR, RCC_APB2RSTR_TIM1RST);
+	*/
 
 	// USB to detached - pull-down both data lines
 	gpio_set_mode(USB_DATA_PORT, GPIO_MODE_OUTPUT_10_MHZ, GPIO_CNF_OUTPUT_PUSHPULL, USB_ENUMERATE_PIN | USB_DATA_P_PIN | USB_DATA_N_PIN);

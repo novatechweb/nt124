@@ -7,7 +7,6 @@
 #include <libopencm3/stm32/usart.h>
 #include <libopencm3/stm32/dma.h>
 #include <libopencm3/stm32/timer.h>
-#include <libopencm3/stm32/exti.h>
 #include <libopencm3/stm32/gpio.h>
 
 /* UART1 : ACM PORT1 */
@@ -26,26 +25,22 @@ struct platform_uart_t uart1 = {
 	.cts = {	// CTS
 		.port = GPIOC,
 		.pin = GPIO8,
-		.exti = EXTI8,
-		.irqn = NVIC_EXTI9_5_IRQ,
+		.irqn = 0xFF,
 	},
 	.dsr = {	// DSR
 		.port = GPIOC,
 		.pin = GPIO7,
-		.exti = EXTI7,
-		.irqn = NVIC_EXTI9_5_IRQ,
+		.irqn = 0xFF,
 	},
 	.dcd = {	// DCD
 		.port = GPIOC,
 		.pin = GPIO6,
-		.exti = EXTI6,
-		.irqn = NVIC_EXTI9_5_IRQ,
+		.irqn = 0xFF,
 	},
 	.ri =  {	// RI
 		.port = GPIOB,
 		.pin = GPIO0,
-		.exti = 0xFF,	// just a filler value that does not corispond to an exti
-		.irqn = NVIC_IRQ_COUNT,
+		.irqn = 0xFF,
 	},
 	.tx =  {	// TX
 		.port = GPIO_BANK_USART1_TX,
@@ -83,26 +78,22 @@ struct platform_uart_t uart2 = {
 	.cts = {	// CTS
 		.port = GPIO_BANK_USART2_CTS,
 		.pin = GPIO_USART2_CTS,
-		.exti = EXTI0,
-		.irqn = NVIC_EXTI0_IRQ,
+		.irqn = 0xFF,
 	},
 	.dsr = {	// DSR
 		.port = GPIOC,
 		.pin = GPIO3,
-		.exti = EXTI3,
-		.irqn = NVIC_EXTI3_IRQ,
+		.irqn = 0xFF,
 	},
 	.dcd = {	// DCD
 		.port = GPIOA,
 		.pin = GPIO4,
-		.exti = EXTI4,
-		.irqn = NVIC_EXTI4_IRQ,
+		.irqn = 0xFF,
 	},
 	.ri =  {	// RI
 		.port = GPIOA,
 		.pin = GPIO5,
-		.exti = EXTI5,
-		.irqn = NVIC_EXTI9_5_IRQ,
+		.irqn = 0xFF,
 	},
 	.tx =  {	// TX
 		.port = GPIO_BANK_USART2_TX,
@@ -141,26 +132,22 @@ struct platform_uart_t uart3 = {
 	.cts = {	// CTS
 		.port = GPIO_BANK_USART3_CTS,
 		.pin = GPIO_USART3_PR_CTS,
-		.exti = EXTI13,
-		.irqn = NVIC_EXTI15_10_IRQ,
+		.irqn = 0xFF,
 	},
 	.dsr = {	// DSR
 		.port = GPIOB,
 		.pin = GPIO1,
-		.exti = EXTI1,
-		.irqn = NVIC_EXTI1_IRQ,
+		.irqn = 0xFF,
 	},
 	.dcd = {	// DCD
 		.port = GPIOB,
 		.pin = GPIO12,
-		.exti = EXTI12,
-		.irqn = NVIC_EXTI15_10_IRQ,
+		.irqn = 0xFF,
 	},
 	.ri  = {	// RI
 		.port = GPIOB,
 		.pin = GPIO15,
-		.exti = EXTI15,
-		.irqn = NVIC_EXTI15_10_IRQ,
+		.irqn = 0xFF,
 	},
 	.tx =  {	// TX
 		.port = GPIO_BANK_USART3_TX,
@@ -199,26 +186,22 @@ struct platform_uart_t uart4 = {
 	.cts = {	// CTS
 		.port = GPIOD,
 		.pin = GPIO2,
-		.exti = EXTI2,
-		.irqn = NVIC_EXTI2_IRQ,
+		.irqn = 0xFF,
 	},
 	.dsr = {	// DSR
 		.port = GPIOC,
 		.pin = GPIO14,
-		.exti = EXTI14,
-		.irqn = NVIC_EXTI15_10_IRQ,
+		.irqn = 0xFF,
 	},
 	.dcd = {	// DCD
 		.port = GPIOB,
 		.pin = GPIO9,
-		.exti = EXTI9,
-		.irqn = NVIC_EXTI9_5_IRQ,
+		.irqn = 0xFF,
 	},
 	.ri =  {	// RI
 		.port = GPIOB,
 		.pin = GPIO8,
-		.exti = 0xFF,	// just a filler value that does not corispond to an exti
-		.irqn = NVIC_IRQ_COUNT,
+		.irqn = 0xFF,
 	},
 	.tx =  {	// TX
 		.port = GPIO_BANK_UART4_TX,
@@ -241,12 +224,6 @@ struct platform_uart_t uart4 = {
 };
 
 void uart_platform_init(void) {
-	// reset the hardware
-	rcc_peripheral_reset(&RCC_APB1RSTR,
-		RCC_APB1RSTR_UART4RST | RCC_APB1RSTR_USART3RST | RCC_APB1RSTR_USART2RST |
-		RCC_APB1RSTR_TIM5RST | RCC_APB1RSTR_TIM4RST |
-		RCC_APB1RSTR_TIM3RST | RCC_APB1RSTR_TIM2RST);
-	rcc_peripheral_reset(&RCC_APB2RSTR, RCC_APB2RSTR_USART1RST | RCC_APB2RSTR_TIM1RST | RCC_APB2RSTR_AFIORST);
 	// Enable clocks all four uarts (USART1)
 	rcc_peripheral_enable_clock(&RCC_APB2ENR,
 		RCC_APB2ENR_USART1EN);

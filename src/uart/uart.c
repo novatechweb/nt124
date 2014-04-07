@@ -8,7 +8,6 @@
 #include <libopencm3/stm32/usart.h>
 #include <libopencm3/stm32/dma.h>
 #include <libopencm3/stm32/timer.h>
-#include <libopencm3/stm32/exti.h>
 #include <libopencm3/cm3/nvic.h>
 #include <libopencm3/usb/usbd.h>
 #include <libopencm3/usb/cdc.h>
@@ -36,7 +35,6 @@ struct uart_t uarts[] = {
 		.stopbits = INITIAL_STOP_BITS,
 		.parity = INITIAL_PARITY,
 		.flowcontrol = INITIAL_FLOW_CONTROL,
-		.control_lines = DTR_MASK,	// not ready to recieve data untill USB is initilized
 		/* RX variables */
 		.rx_state = RX_SERVICED,
 		.rx_buffer = {{'\0'},{'\0'},},
@@ -53,7 +51,6 @@ struct uart_t uarts[] = {
 		.stopbits = INITIAL_STOP_BITS,
 		.parity = INITIAL_PARITY,
 		.flowcontrol = INITIAL_FLOW_CONTROL,
-		.control_lines = DTR_MASK,	// not ready to recieve data untill USB is initilized
 		/* RX variables */
 		.rx_state = RX_SERVICED,
 		.rx_buffer = {{'\0'},{'\0'},},
@@ -70,7 +67,6 @@ struct uart_t uarts[] = {
 		.stopbits = INITIAL_STOP_BITS,
 		.parity = INITIAL_PARITY,
 		.flowcontrol = INITIAL_FLOW_CONTROL,
-		.control_lines = DTR_MASK,	// not ready to recieve data untill USB is initilized
 		/* RX variables */
 		.rx_state = RX_SERVICED,
 		.rx_buffer = {{'\0'},{'\0'},},
@@ -87,7 +83,6 @@ struct uart_t uarts[] = {
 		.stopbits = INITIAL_STOP_BITS,
 		.parity = INITIAL_PARITY,
 		.flowcontrol = INITIAL_FLOW_CONTROL,
-		.control_lines = DTR_MASK,	// not ready to recieve data untill USB is initilized
 		/* RX variables */
 		.rx_state = RX_SERVICED,
 		.rx_buffer = {{'\0'},{'\0'},},
@@ -101,16 +96,6 @@ struct uart_t uarts[] = {
 	},
 };
 
-static void update_output_lines(struct uart_t *dev) {
-	if (dev->control_lines & RTS_MASK)
-		gpio_set(dev->hardware->rts.port, dev->hardware->rts.pin);
-	else
-		gpio_clear(dev->hardware->rts.port, dev->hardware->rts.pin);
-	if (dev->control_lines & DTR_MASK)
-		gpio_set(dev->hardware->dtr.port, dev->hardware->dtr.pin);
-	else
-		gpio_clear(dev->hardware->dtr.port, dev->hardware->dtr.pin);
-}
 
 uint32_t baud_list[] = {
 	   300,  1200,  2400,  4800,  9600, 14400,
@@ -186,11 +171,6 @@ static void disable_uart_irqs(struct uart_t *dev) {
 	nvic_disable_irq(dev->hardware->rx.dma_irqn);
 	nvic_disable_irq(dev->hardware->irqn);
 	nvic_disable_irq(dev->hardware->timer_irqn);
-	nvic_disable_irq(dev->hardware->cts.irqn);
-	nvic_disable_irq(dev->hardware->dsr.irqn);
-	nvic_disable_irq(dev->hardware->dcd.irqn);
-	if (dev->hardware->ri.irqn != NVIC_IRQ_COUNT)
-		nvic_disable_irq(dev->hardware->ri.irqn);
 }
 static void setup_uart_starting_interrupts(struct uart_t *dev) {
 	// set which interrupts to use
@@ -199,22 +179,12 @@ static void setup_uart_starting_interrupts(struct uart_t *dev) {
 	usart_enable_rx_interrupt(dev->hardware->usart);
 	usart_enable_error_interrupt(dev->hardware->usart);
 	timer_disable_irq(dev->hardware->timer, TIM_DIER_UIE);
-	exti_enable_request(dev->hardware->cts.exti);
-	exti_enable_request(dev->hardware->dsr.exti);
-	exti_enable_request(dev->hardware->dcd.exti);
-	if (dev->hardware->ri.irqn != NVIC_IRQ_COUNT)
-		exti_enable_request(dev->hardware->ri.exti);
 
 	// Enable Starting Interrupt(s)
 	nvic_disable_irq(dev->hardware->tx.dma_irqn);
 	nvic_enable_irq(dev->hardware->rx.dma_irqn);
 	nvic_enable_irq(dev->hardware->irqn);
 	nvic_enable_irq(dev->hardware->timer_irqn);
-	nvic_enable_irq(dev->hardware->cts.irqn);
-	nvic_enable_irq(dev->hardware->dsr.irqn);
-	nvic_enable_irq(dev->hardware->dcd.irqn);
-	if (dev->hardware->ri.irqn != NVIC_IRQ_COUNT)
-		nvic_enable_irq(dev->hardware->ri.irqn);
 }
 static void setup_uart_device(struct uart_t *dev) {
 	// Setup the buffers
@@ -224,39 +194,16 @@ static void setup_uart_device(struct uart_t *dev) {
 	dev->tx_dma_buffer_index = (NUM_TX_BUFFERS - 1);
 
 	{	// Setup the pins for the uart port
-		if (!cdcacm_get_config()) {
-			// not ready to recieve data untill USB is initilized
-			dev->control_lines = DTR_MASK;
-		} else
-			dev->control_lines = 0;
 		// OUTPUT PINS
 		gpio_set_mode(dev->hardware->tx.port, GPIO_MODE_OUTPUT_50_MHZ, dev->hardware->tx.cnf, dev->hardware->tx.pin);
 		gpio_set_mode(dev->hardware->rts.port, GPIO_MODE_OUTPUT_50_MHZ, dev->hardware->rts.cnf, dev->hardware->rts.pin);
 		gpio_set_mode(dev->hardware->dtr.port, GPIO_MODE_OUTPUT_50_MHZ, dev->hardware->dtr.cnf, dev->hardware->dtr.pin);
-		update_output_lines(dev);
-
 		// INPUT PINS
 		gpio_set_mode(dev->hardware->rx.port, GPIO_MODE_INPUT, GPIO_CNF_INPUT_FLOAT, dev->hardware->rx.pin);
 		gpio_set_mode(dev->hardware->cts.port, GPIO_MODE_INPUT, GPIO_CNF_INPUT_FLOAT, dev->hardware->cts.pin);
-		if (gpio_get(dev->hardware->cts.port, dev->hardware->cts.pin))
-			dev->control_lines |= CTS_MASK;
-		else
-			dev->control_lines &= ~CTS_MASK;
 		gpio_set_mode(dev->hardware->dsr.port, GPIO_MODE_INPUT, GPIO_CNF_INPUT_FLOAT, dev->hardware->dsr.pin);
-		if (gpio_get(dev->hardware->dsr.port, dev->hardware->dsr.pin))
-			dev->control_lines |= DSR_MASK;
-		else
-			dev->control_lines &= ~DSR_MASK;
 		gpio_set_mode(dev->hardware->dcd.port, GPIO_MODE_INPUT, GPIO_CNF_INPUT_FLOAT, dev->hardware->dcd.pin);
-		if (gpio_get(dev->hardware->dcd.port, dev->hardware->dcd.pin))
-			dev->control_lines |= DCD_MASK;
-		else
-			dev->control_lines &= ~DCD_MASK;
 		gpio_set_mode(dev->hardware->ri.port, GPIO_MODE_INPUT, GPIO_CNF_INPUT_FLOAT, dev->hardware->ri.pin);
-		if (gpio_get(dev->hardware->ri.port, dev->hardware->ri.pin))
-			dev->control_lines |= RI_MASK;
-		else
-			dev->control_lines &= ~RI_MASK;
 	}
 	{	// setup DMA for uart TX
 		dma_channel_reset(dev->hardware->tx.dma, dev->hardware->tx.channel);
@@ -307,22 +254,6 @@ static void setup_uart_device(struct uart_t *dev) {
 		 * ?? timer_generate_event(dev->hardware->timer, uint32_t event(@ref tim_event_gen));
 		 */
 	}
-	{	// setup external interrupts for CTS, DSR, DCD and RI
-		// CTS
-		exti_select_source(dev->hardware->cts.exti, dev->hardware->cts.port);
-		exti_set_trigger(dev->hardware->cts.exti, EXTI_TRIGGER_BOTH);
-		// DSR
-		exti_select_source(dev->hardware->dsr.exti, dev->hardware->dsr.port);
-		exti_set_trigger(dev->hardware->dsr.exti, EXTI_TRIGGER_BOTH);
-		// DCD
-		exti_select_source(dev->hardware->dcd.exti, dev->hardware->dcd.port);
-		exti_set_trigger(dev->hardware->dcd.exti, EXTI_TRIGGER_BOTH);
-		if (dev->hardware->ri.irqn != NVIC_IRQ_COUNT) {
-			// setup external interrupts for RI if there is one
-			exti_select_source(dev->hardware->ri.exti, dev->hardware->ri.port);
-			exti_set_trigger(dev->hardware->ri.exti, EXTI_TRIGGER_BOTH);
-		}
-	}
 	
 	// Finally setup the uart port and enable the USART
 	set_uart_parameters(dev);
@@ -332,11 +263,6 @@ static void setup_uart_device(struct uart_t *dev) {
 	nvic_set_priority(dev->hardware->timer_irqn, IRQ_PRI_UART_TIM);
 	nvic_set_priority(dev->hardware->tx.dma_irqn, IRQ_PRI_UART_TX_DMA);
 	nvic_set_priority(dev->hardware->rx.dma_irqn, IRQ_PRI_UART_RX_DMA);
-	nvic_set_priority(dev->hardware->cts.irqn, IRQ_PRI_EXT_INT);
-	nvic_set_priority(dev->hardware->dsr.irqn, IRQ_PRI_EXT_INT);
-	nvic_set_priority(dev->hardware->dcd.irqn, IRQ_PRI_EXT_INT);
-	if (dev->hardware->ri.irqn != NVIC_IRQ_COUNT)
-		nvic_set_priority(dev->hardware->ri.irqn, IRQ_PRI_EXT_INT);
 	
 	// enable uart RX DMA channel
 	dma_enable_channel(dev->hardware->rx.dma, dev->hardware->rx.channel);
@@ -577,244 +503,3 @@ void UART1_RX_TIMER(void) { uart_RX_timer(&uarts[0], ACM0_ENDPOINT); }
 void UART2_RX_TIMER(void) { uart_RX_timer(&uarts[1], ACM3_ENDPOINT); }
 void UART3_RX_TIMER(void) { uart_RX_timer(&uarts[2], ACM2_ENDPOINT); }
 void UART4_RX_TIMER(void) { uart_RX_timer(&uarts[3], ACM1_ENDPOINT); }
-
-
-
-/*
- * Interrupt routines for hardware control lines
- *     These might need to go into the platform since the
- *     uart#, port read, and irq# are specific to harware layout
- */
-
-void EXT_INTERRUPT0(void) {     // CTS2 - EXTI0
-	uint32_t flags = exti_get_flag_status(uarts[1].hardware->cts.exti);
-	uint16_t port = gpio_port_read(uarts[1].hardware->cts.port);
-	exti_reset_request(flags);
-	// disable all IRQ# that also update uarts[1].control_lines
-	nvic_disable_irq(NVIC_EXTI0_IRQ);
-	nvic_disable_irq(NVIC_EXTI3_IRQ);
-	nvic_disable_irq(NVIC_EXTI4_IRQ);
-	nvic_disable_irq(NVIC_EXTI9_5_IRQ);
-	if (port & uarts[1].hardware->cts.pin)
-		uarts[1].control_lines |= CTS_MASK;
-	else
-		uarts[1].control_lines = (uarts[1].control_lines & ~CTS_MASK);
-	// re-enable IRQ#
-	nvic_enable_irq(NVIC_EXTI9_5_IRQ);
-	nvic_enable_irq(NVIC_EXTI4_IRQ);
-	nvic_enable_irq(NVIC_EXTI3_IRQ);
-	nvic_enable_irq(NVIC_EXTI0_IRQ);
-	// inform ACM device
-	if (port & uarts[1].hardware->cts.pin)
-		// uarts[1] -- (CTS2 - EXTI0)
-		__asm__("nop");
-}
-void EXT_INTERRUPT1(void) {     // DSR3 - EXTI1
-	uint32_t flags = exti_get_flag_status(uarts[2].hardware->dsr.exti);
-	uint16_t port = gpio_port_read(uarts[2].hardware->dsr.port);
-	exti_reset_request(flags);
-	// disable all IRQ# that also update uarts[2].control_lines
-	nvic_disable_irq(NVIC_EXTI15_10_IRQ);
-	nvic_disable_irq(NVIC_EXTI1_IRQ);
-	if (port & uarts[2].hardware->dsr.pin)
-		uarts[2].control_lines |= DSR_MASK;
-	else
-		uarts[2].control_lines = (uarts[2].control_lines & ~DSR_MASK);
-	// re-enable IRQ#
-	nvic_enable_irq(NVIC_EXTI1_IRQ);
-	nvic_enable_irq(NVIC_EXTI15_10_IRQ);
-	// inform ACM device
-	if (port & uarts[2].hardware->dsr.pin)
-		// uarts[2] -- (DSR3 - EXTI1)
-		__asm__("nop");
-}
-void EXT_INTERRUPT2(void) {     // CTS4 - EXTI2
-	uint32_t flags = exti_get_flag_status(uarts[3].hardware->cts.exti);
-	uint16_t port = gpio_port_read(uarts[3].hardware->cts.port);
-	exti_reset_request(flags);
-	// disable all IRQ# that also update uarts[3].control_lines
-	nvic_disable_irq(NVIC_EXTI2_IRQ);
-	nvic_disable_irq(NVIC_EXTI15_10_IRQ);
-	nvic_disable_irq(NVIC_EXTI9_5_IRQ);
-	if (port & uarts[3].hardware->cts.pin)
-		uarts[3].control_lines |= CTS_MASK;
-	else
-		uarts[3].control_lines = (uarts[3].control_lines & ~CTS_MASK);
-	// re-enable IRQ#
-	nvic_enable_irq(NVIC_EXTI9_5_IRQ);
-	nvic_enable_irq(NVIC_EXTI15_10_IRQ);
-	nvic_enable_irq(NVIC_EXTI2_IRQ);
-	// inform ACM device
-	if (port & uarts[3].hardware->cts.pin)
-		// uarts[3] -- (CTS4 - EXTI2)
-		__asm__("nop");
-}
-void EXT_INTERRUPT3(void) {     // DSR3 - EXTI3
-	uint32_t flags = exti_get_flag_status(uarts[2].hardware->dsr.exti);
-	uint16_t port = gpio_port_read(uarts[2].hardware->dsr.port);
-	exti_reset_request(flags);
-	// disable all IRQ# that also update uarts[2].control_lines
-	nvic_disable_irq(NVIC_EXTI15_10_IRQ);
-	nvic_disable_irq(NVIC_EXTI1_IRQ);
-	if (port & uarts[2].hardware->dsr.pin)
-		uarts[2].control_lines |= DSR_MASK;
-	else
-		uarts[2].control_lines = (uarts[2].control_lines & ~DSR_MASK);
-	// re-enable IRQ#
-	nvic_enable_irq(NVIC_EXTI1_IRQ);
-	nvic_enable_irq(NVIC_EXTI15_10_IRQ);
-	// inform ACM device
-	if (port & uarts[2].hardware->dsr.pin)
-		// uarts[2] -- (DSR3 - EXTI3)
-		__asm__("nop");
-}
-void EXT_INTERRUPT4(void) {     // DCD2 - EXTI4
-	uint32_t flags = exti_get_flag_status(uarts[1].hardware->dcd.exti);
-	uint16_t port = gpio_port_read(uarts[1].hardware->dcd.port);
-	exti_reset_request(flags);
-	// disable all IRQ# that also update uarts[1].control_lines
-	nvic_disable_irq(NVIC_EXTI0_IRQ);
-	nvic_disable_irq(NVIC_EXTI3_IRQ);
-	nvic_disable_irq(NVIC_EXTI4_IRQ);
-	nvic_disable_irq(NVIC_EXTI9_5_IRQ);
-	if (port & uarts[1].hardware->dcd.pin)
-		uarts[1].control_lines |= DCD_MASK;
-	else
-		uarts[1].control_lines = (uarts[1].control_lines & ~DCD_MASK);
-	// re-enable IRQ#
-	nvic_enable_irq(NVIC_EXTI9_5_IRQ);
-	nvic_enable_irq(NVIC_EXTI4_IRQ);
-	nvic_enable_irq(NVIC_EXTI3_IRQ);
-	nvic_enable_irq(NVIC_EXTI0_IRQ);
-	// inform ACM device
-	if (port & uarts[1].hardware->dcd.pin)
-		// uarts[1] -- (DCD2 - EXTI4)
-		__asm__("nop");
-}
-void EXT_INTERRUPT9_5(void) {   // DCD1, DSR1, CTS1, and DCD4
-	uint32_t flags = exti_get_flag_status(
-		uarts[0].hardware->dcd.exti | uarts[0].hardware->dsr.exti |
-		uarts[0].hardware->cts.exti | uarts[3].hardware->dcd.exti);
-	// (RI2 - EXTI5)
-	uint16_t portA = gpio_port_read(GPIOA);
-	// (DCD4 - EXTI9)
-	uint16_t portB = gpio_port_read(GPIOB);
-	// (DCD1 - EXTI6), (DSR1 - EXTI7), (CTS1 - EXTI8)
-	uint16_t portC = gpio_port_read(GPIOC);
-	exti_reset_request(flags);
-	// disable all IRQ# that also update uarts[0].control_lines
-	nvic_disable_irq(NVIC_EXTI9_5_IRQ);
-	if (flags & uarts[0].hardware->dcd.exti) {    // DCD1 - EXTI6
-		if (portC & uarts[0].hardware->dcd.pin)
-			uarts[0].control_lines |= DCD_MASK;
-		else
-			uarts[0].control_lines = (uarts[0].control_lines & ~DCD_MASK);
-	}
-	if (flags & uarts[0].hardware->dsr.exti) {    // DSR1 - EXTI7
-		if (portC & uarts[0].hardware->dsr.pin)
-			uarts[0].control_lines |= DSR_MASK;
-		else
-			uarts[0].control_lines = (uarts[0].control_lines & ~DSR_MASK);
-	}
-	if (flags & uarts[0].hardware->cts.exti) {    // CTS1 - EXTI8
-		if (portC & uarts[0].hardware->cts.pin)
-			uarts[0].control_lines |= CTS_MASK;
-		else
-			uarts[0].control_lines = (uarts[0].control_lines & ~CTS_MASK);
-	}
-	// re-enable IRQ#
-	nvic_enable_irq(NVIC_EXTI9_5_IRQ);  // uarts[0]
-	// disable all IRQ# that also update uarts[3].control_lines
-	nvic_disable_irq(NVIC_EXTI2_IRQ);
-	nvic_disable_irq(NVIC_EXTI15_10_IRQ);
-	nvic_disable_irq(NVIC_EXTI9_5_IRQ);
-	if (flags & uarts[3].hardware->dcd.exti) {    // DCD4 - EXTI9
-		if (portB & uarts[3].hardware->dcd.pin)
-			uarts[3].control_lines |= DCD_MASK;
-		else
-			uarts[3].control_lines = (uarts[3].control_lines & ~DCD_MASK);
-	}
-	// re-enable IRQ#
-	nvic_enable_irq(NVIC_EXTI9_5_IRQ);
-	nvic_enable_irq(NVIC_EXTI15_10_IRQ);
-	nvic_enable_irq(NVIC_EXTI2_IRQ);
-	// disable all IRQ# that also update uarts[1].control_lines
-	nvic_disable_irq(NVIC_EXTI0_IRQ);
-	nvic_disable_irq(NVIC_EXTI3_IRQ);
-	nvic_disable_irq(NVIC_EXTI4_IRQ);
-	nvic_disable_irq(NVIC_EXTI9_5_IRQ);
-	if (flags & uarts[1].hardware->ri.exti) {    // RI2 - EXTI5
-		if (portA & uarts[1].hardware->ri.pin)
-			uarts[1].control_lines |= RI_MASK;
-		else
-			uarts[1].control_lines = (uarts[1].control_lines & ~RI_MASK);
-	}
-	// re-enable IRQ#
-	nvic_enable_irq(NVIC_EXTI9_5_IRQ);
-	nvic_enable_irq(NVIC_EXTI4_IRQ);
-	nvic_enable_irq(NVIC_EXTI3_IRQ);
-	nvic_enable_irq(NVIC_EXTI0_IRQ);
-	// inform ACM device
-	if ((flags & uarts[0].hardware->dcd.exti) | (flags & uarts[0].hardware->dsr.exti) | (flags & uarts[0].hardware->cts.exti))
-		// uarts[0] -- (DCD1 - EXTI6), (DSR1 - EXTI7), (CTS1 - EXTI8)
-		__asm__("nop");
-	if (flags & uarts[3].hardware->dcd.exti)
-		// uarts[3] -- (DCD4 - EXTI9)
-		__asm__("nop");
-}
-void EXT_INTERRUPT15_10(void) {     // DCD3, CTS3, and DSR4
-	uint32_t flags = exti_get_flag_status(
-		uarts[2].hardware->dcd.exti | uarts[2].hardware->cts.exti | uarts[3].hardware->dsr.exti);
-	// (DCD3 - EXTI12), (CTS3 - EXTI13), (RI3 - EXTI15)
-	uint16_t portB = gpio_port_read(GPIOB);
-	// (DSR4 - EXTI14)
-	uint16_t portC = gpio_port_read(GPIOC);
-	exti_reset_request(flags);
-	// disable all IRQ# that also update uarts[2].control_lines
-	nvic_disable_irq(NVIC_EXTI15_10_IRQ);
-	nvic_disable_irq(NVIC_EXTI1_IRQ);
-	if (flags & uarts[2].hardware->dcd.exti) {   // DCD3 - EXTI12
-		if (portB & uarts[2].hardware->dcd.pin)
-			uarts[2].control_lines |= DCD_MASK;
-		else
-			uarts[2].control_lines = (uarts[2].control_lines & ~DCD_MASK);
-		// inform ACM device
-	}
-	if (flags & uarts[2].hardware->cts.exti) {   // CTS3 - EXTI13
-		if (portB & uarts[2].hardware->cts.pin)
-			uarts[2].control_lines |= CTS_MASK;
-		else
-			uarts[2].control_lines = (uarts[2].control_lines & ~CTS_MASK);
-		// inform ACM device
-	}
-	if (flags & uarts[2].hardware->ri.exti) {   // RI3 - EXTI15
-		if (portB & uarts[2].hardware->ri.pin)
-			uarts[2].control_lines |= DSR_MASK;
-		else
-			uarts[2].control_lines = (uarts[2].control_lines & ~DSR_MASK);
-	}
-	// re-enable IRQ#
-	nvic_enable_irq(NVIC_EXTI1_IRQ);
-	nvic_enable_irq(NVIC_EXTI15_10_IRQ);
-	// disable all IRQ# that also update uarts[3].control_lines
-	nvic_disable_irq(NVIC_EXTI2_IRQ);
-	nvic_disable_irq(NVIC_EXTI15_10_IRQ);
-	nvic_disable_irq(NVIC_EXTI9_5_IRQ);
-	if (flags & uarts[3].hardware->dsr.exti) {   // DSR4 - EXTI14
-		if (portC & uarts[3].hardware->dsr.pin)
-			uarts[3].control_lines |= DSR_MASK;
-		else
-			uarts[3].control_lines = (uarts[3].control_lines & ~DSR_MASK);
-	}
-	// re-enable IRQ#
-	nvic_enable_irq(NVIC_EXTI9_5_IRQ);
-	nvic_enable_irq(NVIC_EXTI15_10_IRQ);
-	nvic_enable_irq(NVIC_EXTI2_IRQ);
-	// inform ACM device
-	if ((flags & uarts[2].hardware->dcd.exti) | (flags & uarts[2].hardware->cts.exti))
-		// uarts[2] -- (DCD3 - EXTI12), (CTS3 - EXTI13)
-		__asm__("nop");
-	if (flags & uarts[3].hardware->dsr.exti)
-		// uarts[3] -- (DSR4 - EXTI14)
-		__asm__("nop");
-}

@@ -23,14 +23,6 @@
 #define UART3_TX_DMA_ISR dma1_channel2_isr
 #define UART4_TX_DMA_ISR dma2_channel4_5_isr
 
-#define EXT_INTERRUPT0 exti0_isr
-#define EXT_INTERRUPT1 exti1_isr
-#define EXT_INTERRUPT2 exti2_isr
-#define EXT_INTERRUPT3 exti3_isr
-#define EXT_INTERRUPT4 exti4_isr
-#define EXT_INTERRUPT9_5 exti9_5_isr
-#define EXT_INTERRUPT15_10 exti15_10_isr
-
 struct platform_RX_t {
 	const uint32_t port;
 	const uint32_t dma;
@@ -48,7 +40,6 @@ struct platform_TX_t {
 };
 struct platform_input_pins_t {
 	const uint32_t port;
-	const uint32_t exti;
 	const uint16_t pin;
 	const uint8_t irqn;
 };
