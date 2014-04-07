@@ -7,7 +7,7 @@ CC = $(CROSS_COMPILE)gcc
 OBJCOPY = $(CROSS_COMPILE)objcopy
 
 CFLAGS += \
-	-O3 \
+	-O0 \
 	-g3 \
 	-MD \
 	-std=gnu99 \

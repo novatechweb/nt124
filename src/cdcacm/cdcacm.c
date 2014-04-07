@@ -39,7 +39,9 @@
 #include "platform.h"
 #include "cdcacm.h"
 
-#define BOARD_IDENT             "Black Magic Probe"
+#define BOARD_IDENT             "NovaTech USB to serial"
+
+#define SERIALNO_FLASH_LOCATION	0x8001ff0
 
 extern struct uart_t uarts[];
 
@@ -526,9 +528,9 @@ static const struct usb_config_descriptor config = {
 char serial_no[9];
 
 static const char *usb_strings[] = {
-	"Black Sphere Technologies",
+	"NovaTech LLC",
 	BOARD_IDENT,
-	serial_no,
+	(char *)SERIALNO_FLASH_LOCATION,
 	"Port 1",
 	"Port 2",
 	"Port 3",
