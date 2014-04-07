@@ -12,6 +12,7 @@ main(int argc, char **argv) {
 	(void) argc;
 	(void) argv;
 
+	platform_reset_hardware();
 	platform_init();
 	uart_init();
 	cdcacm_init();

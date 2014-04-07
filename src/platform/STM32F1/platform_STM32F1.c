@@ -1,4 +1,5 @@
 #include "platform_STM32F1.h"
+#include "platform_uart.h"
 #include "platform_usb.h"
 
 #include <stdint.h>
@@ -16,6 +17,17 @@
 #define UNUSED_PORTC_PIN3 GPIO4
 #define UNUSED_PORTC_PIN4 GPIO13
 #define UNUSED_PORTC_PIN5 GPIO15
+
+void platform_reset_hardware(void) {
+	rcc_peripheral_reset(&RCC_APB2RSTR,
+		RCC_APB2RSTR_IOPDRST | RCC_APB2RSTR_IOPCRST |
+		RCC_APB2RSTR_IOPBRST | RCC_APB2RSTR_IOPARST);
+	rcc_peripheral_clear_reset(&RCC_APB2RSTR,
+		RCC_APB2RSTR_IOPDRST | RCC_APB2RSTR_IOPCRST |
+		RCC_APB2RSTR_IOPBRST | RCC_APB2RSTR_IOPARST);
+	uart_reset_hardware();
+	usb_reset_hardware();
+}
 
 void platform_init(void) {
 	// Setup oscillator

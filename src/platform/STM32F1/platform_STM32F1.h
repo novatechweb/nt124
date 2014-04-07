@@ -79,6 +79,7 @@
 //#include <libopencm3/usb/usbd.h>
 
 
+void platform_reset_hardware(void);
 void platform_init(void);
 //void assert_boot_pin(void);
 
