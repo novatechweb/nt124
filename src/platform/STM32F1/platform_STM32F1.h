@@ -81,6 +81,7 @@
 
 void platform_reset_hardware(void);
 void platform_init(void);
+void platform_delay(uint32_t delay);
 //void assert_boot_pin(void);
 
 
