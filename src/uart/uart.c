@@ -407,7 +407,7 @@ inline static void uart_RX_DMA(struct uart_t *dev, uint8_t ep) {
 		}
 		dma_enable_channel(dev->hardware->rx.dma, dev->hardware->rx.channel);
 		if (cdcacm_get_config())
-			usbd_ep_write_packet(usbdev, ep, &dev->rx_buffer[rx_dma_index], RX_BUFFER_SIZE);
+			usbd_ep_write_packet(usbdev, ep, dev->rx_buffer[rx_dma_index], RX_BUFFER_SIZE);
 		dev->rx_state &= ~RX_NEED_SERVICE;
 		nvic_enable_irq(dev->hardware->rx.dma_irqn);
 	}
