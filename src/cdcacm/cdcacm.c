@@ -68,18 +68,6 @@ static const struct usb_device_descriptor dev = {
         .bNumConfigurations = 1,
 };
 
-/* This notification endpoint isn't implemented. According to CDC spec its
- * optional, but its absence causes a NULL pointer dereference in Linux cdc_acm
- * driver. */
-static const struct usb_endpoint_descriptor port1_comm_endp[] = {{
-	.bLength = USB_DT_ENDPOINT_SIZE,
-	.bDescriptorType = USB_DT_ENDPOINT,
-	.bEndpointAddress = 0x82,
-	.bmAttributes = USB_ENDPOINT_ATTR_INTERRUPT,
-	.wMaxPacketSize = 16,
-	.bInterval = 255,
-}};
-
 static const struct usb_endpoint_descriptor port1_data_endp[] = {{
 	.bLength = USB_DT_ENDPOINT_SIZE,
 	.bDescriptorType = USB_DT_ENDPOINT,
@@ -136,13 +124,11 @@ static const struct usb_interface_descriptor port1_comm_iface[] = {{
 	.bDescriptorType = USB_DT_INTERFACE,
 	.bInterfaceNumber = 0,
 	.bAlternateSetting = 0,
-	.bNumEndpoints = 1,
+	.bNumEndpoints = 0,
 	.bInterfaceClass = USB_CLASS_CDC,
 	.bInterfaceSubClass = USB_CDC_SUBCLASS_ACM,
 	.bInterfaceProtocol = USB_CDC_PROTOCOL_AT,
 	.iInterface = 4,
-
-	.endpoint = port1_comm_endp,
 
 	.extra = &port1_cdcacm_functional_descriptors,
 	.extralen = sizeof(port1_cdcacm_functional_descriptors)
@@ -174,15 +160,6 @@ static const struct usb_iface_assoc_descriptor port1_assoc = {
 };
 
 /* Serial ACM interface */
-static const struct usb_endpoint_descriptor port2_comm_endp[] = {{
-	.bLength = USB_DT_ENDPOINT_SIZE,
-	.bDescriptorType = USB_DT_ENDPOINT,
-	.bEndpointAddress = 0x84,
-	.bmAttributes = USB_ENDPOINT_ATTR_INTERRUPT,
-	.wMaxPacketSize = 16,
-	.bInterval = 255,
-}};
-
 static const struct usb_endpoint_descriptor port2_data_endp[] = {{
 	.bLength = USB_DT_ENDPOINT_SIZE,
 	.bDescriptorType = USB_DT_ENDPOINT,
@@ -239,13 +216,11 @@ static const struct usb_interface_descriptor port2_comm_iface[] = {{
 	.bDescriptorType = USB_DT_INTERFACE,
 	.bInterfaceNumber = 2,
 	.bAlternateSetting = 0,
-	.bNumEndpoints = 1,
+	.bNumEndpoints = 0,
 	.bInterfaceClass = USB_CLASS_CDC,
 	.bInterfaceSubClass = USB_CDC_SUBCLASS_ACM,
 	.bInterfaceProtocol = USB_CDC_PROTOCOL_AT,
 	.iInterface = 5,
-
-	.endpoint = port2_comm_endp,
 
 	.extra = &port2_cdcacm_functional_descriptors,
 	.extralen = sizeof(port2_cdcacm_functional_descriptors)
@@ -277,15 +252,6 @@ static const struct usb_iface_assoc_descriptor port2_assoc = {
 };
 
 /* Serial ACM interface */
-static const struct usb_endpoint_descriptor port3_comm_endp[] = {{
-	.bLength = USB_DT_ENDPOINT_SIZE,
-	.bDescriptorType = USB_DT_ENDPOINT,
-	.bEndpointAddress = 0x86,
-	.bmAttributes = USB_ENDPOINT_ATTR_INTERRUPT,
-	.wMaxPacketSize = 16,
-	.bInterval = 255,
-}};
-
 static const struct usb_endpoint_descriptor port3_data_endp[] = {{
 	.bLength = USB_DT_ENDPOINT_SIZE,
 	.bDescriptorType = USB_DT_ENDPOINT,
@@ -342,13 +308,11 @@ static const struct usb_interface_descriptor port3_comm_iface[] = {{
 	.bDescriptorType = USB_DT_INTERFACE,
 	.bInterfaceNumber = 4,
 	.bAlternateSetting = 0,
-	.bNumEndpoints = 1,
+	.bNumEndpoints = 0,
 	.bInterfaceClass = USB_CLASS_CDC,
 	.bInterfaceSubClass = USB_CDC_SUBCLASS_ACM,
 	.bInterfaceProtocol = USB_CDC_PROTOCOL_AT,
 	.iInterface = 6,
-
-	.endpoint = port3_comm_endp,
 
 	.extra = &port3_cdcacm_functional_descriptors,
 	.extralen = sizeof(port3_cdcacm_functional_descriptors)
@@ -380,15 +344,6 @@ static const struct usb_iface_assoc_descriptor port3_assoc = {
 };
 
 /* Serial ACM interface */
-static const struct usb_endpoint_descriptor port4_comm_endp[] = {{
-	.bLength = USB_DT_ENDPOINT_SIZE,
-	.bDescriptorType = USB_DT_ENDPOINT,
-	.bEndpointAddress = 0x88,
-	.bmAttributes = USB_ENDPOINT_ATTR_INTERRUPT,
-	.wMaxPacketSize = 16,
-	.bInterval = 255,
-}};
-
 static const struct usb_endpoint_descriptor port4_data_endp[] = {{
 	.bLength = USB_DT_ENDPOINT_SIZE,
 	.bDescriptorType = USB_DT_ENDPOINT,
@@ -445,13 +400,11 @@ static const struct usb_interface_descriptor port4_comm_iface[] = {{
 	.bDescriptorType = USB_DT_INTERFACE,
 	.bInterfaceNumber = 6,
 	.bAlternateSetting = 0,
-	.bNumEndpoints = 1,
+	.bNumEndpoints = 0,
 	.bInterfaceClass = USB_CLASS_CDC,
 	.bInterfaceSubClass = USB_CDC_SUBCLASS_ACM,
 	.bInterfaceProtocol = USB_CDC_PROTOCOL_AT,
 	.iInterface = 7,
-
-	.endpoint = port4_comm_endp,
 
 	.extra = &port4_cdcacm_functional_descriptors,
 	.extralen = sizeof(port4_cdcacm_functional_descriptors)
@@ -588,55 +541,30 @@ static void cdcacm_set_config(usbd_device *dev, uint16_t wValue)
 					CDCACM_PACKET_SIZE, ACM0_UART_OUT_CALL);
 	usbd_ep_setup(dev, 0x81, USB_ENDPOINT_ATTR_BULK,
 					CDCACM_PACKET_SIZE, usbuart_usb_in_cb);
-	usbd_ep_setup(dev, 0x82, USB_ENDPOINT_ATTR_INTERRUPT, 16, NULL);
 
 	/* Serial interface */
 	usbd_ep_setup(dev, 0x03, USB_ENDPOINT_ATTR_BULK,
 					CDCACM_PACKET_SIZE, ACM1_UART_OUT_CALL);
 	usbd_ep_setup(dev, 0x83, USB_ENDPOINT_ATTR_BULK,
 					CDCACM_PACKET_SIZE, usbuart_usb_in_cb);
-	usbd_ep_setup(dev, 0x84, USB_ENDPOINT_ATTR_INTERRUPT, 16, NULL);
 	
 	/* Serial interface */
 	usbd_ep_setup(dev, 0x05, USB_ENDPOINT_ATTR_BULK,
 					CDCACM_PACKET_SIZE, ACM2_UART_OUT_CALL);
 	usbd_ep_setup(dev, 0x85, USB_ENDPOINT_ATTR_BULK,
 					CDCACM_PACKET_SIZE, usbuart_usb_in_cb);
-	usbd_ep_setup(dev, 0x86, USB_ENDPOINT_ATTR_INTERRUPT, 16, NULL);
 	
 	/* Serial interface */
 	usbd_ep_setup(dev, 0x07, USB_ENDPOINT_ATTR_BULK,
 					CDCACM_PACKET_SIZE, ACM3_UART_OUT_CALL);
 	usbd_ep_setup(dev, 0x87, USB_ENDPOINT_ATTR_BULK,
 					CDCACM_PACKET_SIZE, usbuart_usb_in_cb);
-	usbd_ep_setup(dev, 0x88, USB_ENDPOINT_ATTR_INTERRUPT, 16, NULL);
 
 
 	usbd_register_control_callback(dev,
 			USB_REQ_TYPE_CLASS | USB_REQ_TYPE_INTERFACE,
 			USB_REQ_TYPE_TYPE | USB_REQ_TYPE_RECIPIENT,
 			cdcacm_control_request);
-
-	/* Notify the host that DCD is asserted.
-	 * Allows the use of /dev/tty* devices on *BSD/MacOS
-	 */
-	char buf[10];
-	struct usb_cdc_notification *notif = (void*)buf;
-	/* We echo signals back to host as notification */
-	notif->bmRequestType = 0xA1;
-	notif->bNotification = USB_CDC_NOTIFY_SERIAL_STATE;
-	notif->wValue = 0;
-	notif->wIndex = 0;
-	notif->wLength = 2;
-	buf[8] = 3; /* DCD | DSR */
-	buf[9] = 0;
-	usbd_ep_write_packet(dev, 0x82, buf, 10);
-	notif->wIndex = 2;
-	usbd_ep_write_packet(dev, 0x84, buf, 10);
-	notif->wIndex = 4;
-	usbd_ep_write_packet(dev, 0x86, buf, 10);
-	notif->wIndex = 6;
-	usbd_ep_write_packet(dev, 0x88, buf, 10);
 }
 
 /* We need a special large control buffer for this device: */

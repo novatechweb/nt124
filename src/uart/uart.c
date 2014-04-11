@@ -386,7 +386,18 @@ void UART2_TX_DMA_ISR(void) { uart_TX_DMA_empty(&uarts[1]); }
 void UART3_TX_DMA_ISR(void) { uart_TX_DMA_empty(&uarts[2]); }
 void UART4_TX_DMA_ISR(void) { uart_TX_DMA_empty(&uarts[3]); }
 
-
+void send_rx(uint8_t ep, char * rx_buffer, int len) {
+	if (cdcacm_get_config()) {
+		char reply_buf[sizeof(uint16_t) + RX_BUFFER_SIZE];
+		int i;
+		reply_buf[0] = 0;
+		reply_buf[1] = 0;
+		for (i=0; i < len; i++) {
+			reply_buf[sizeof(uint16_t) + i] = rx_buffer[i];
+		}
+		usbd_ep_write_packet(usbdev, ep, reply_buf, len+2);
+	}
+}
 
 // TODO: Need to add in something to check for overwriting a buffer that was not already serviced
 inline static void uart_RX_DMA(struct uart_t *dev, uint8_t ep) {
@@ -406,8 +417,7 @@ inline static void uart_RX_DMA(struct uart_t *dev, uint8_t ep) {
 			dma_set_memory_address(dev->hardware->rx.dma, dev->hardware->rx.channel, (uint32_t)(dev->rx_buffer[0]));
 		}
 		dma_enable_channel(dev->hardware->rx.dma, dev->hardware->rx.channel);
-		if (cdcacm_get_config())
-			usbd_ep_write_packet(usbdev, ep, dev->rx_buffer[rx_dma_index], RX_BUFFER_SIZE);
+		send_rx(ep, dev->rx_buffer[rx_dma_index], RX_BUFFER_SIZE);
 		dev->rx_state &= ~RX_NEED_SERVICE;
 		nvic_enable_irq(dev->hardware->rx.dma_irqn);
 	}
@@ -491,10 +501,7 @@ inline static void uart_RX_timer(struct uart_t *dev, uint8_t ep) {
 	// start RX DMA
 	nvic_enable_irq(dev->hardware->rx.dma_irqn);
 	dma_enable_channel(dev->hardware->rx.dma, dev->hardware->rx.channel);
-	if (cdcacm_get_config()) {
-		// give the receiv buffer to USBACM
-		usbd_ep_write_packet(usbdev, ep, dev->rx_buffer[rx_dma_index], num_read);
-	}
+	send_rx(ep, dev->rx_buffer[rx_dma_index], num_read);
 	dev->rx_state &= ~RX_NEED_SERVICE;
 	// Enable RX interrupts once more
 	nvic_enable_irq(dev->hardware->irqn);
