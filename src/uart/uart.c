@@ -322,7 +322,6 @@ void usbuart_usb_out_cb4(usbd_device *dev, uint8_t ep) { usbuart_usb_out_cb(&uar
 void usbuart_usb_in_cb(usbd_device *dev, uint8_t ep) { (void) dev; (void) ep; }
 void usbuart_set_line_coding(struct uart_t *dev, struct usb_cdc_line_coding *coding) {
 	dev->baud = coding->dwDTERate;
-	dev->bits = coding->bDataBits;
 	switch(coding->bCharFormat) {
 	case 0:
 		dev->stopbits = USART_STOPBITS_1;
@@ -343,6 +342,18 @@ void usbuart_set_line_coding(struct uart_t *dev, struct usb_cdc_line_coding *cod
 		break;
 	case 2:
 		dev->parity = USART_PARITY_EVEN;
+		break;
+	}
+	switch(coding->bDataBits) {
+	case 7:
+		dev->bits = 8;
+		break;
+	case 8:
+	default:
+		if (dev->parity == USART_PARITY_NONE)
+			dev->bits = 8;
+		else
+			dev->bits = 9;
 		break;
 	}
 	/* need to make certain we can change at this time (is DMA finished, lines set at state saying no longer trying to send) */
