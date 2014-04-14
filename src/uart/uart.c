@@ -286,21 +286,19 @@ void uart_init(void) {
 inline static void usbuart_usb_out_cb(struct uart_t *uart, usbd_device *dev, uint8_t ep) {
 	int len;
 
-	nvic_disable_irq(uart->hardware->tx.dma_irqn);
 	while ((uart->tx_state == TX_WORKING) && (uart->tx_num_to_send)) {
 		// DMA is still working or the second buffer has some data
-		nvic_enable_irq(uart->hardware->tx.dma_irqn);
 	}
 	len = usbd_ep_read_packet(dev, ep, uart->buffers[uart->tx_curr_buffer_index], CDCACM_PACKET_SIZE);
-	uart->tx_curr_buffer_index = ((uart->tx_curr_buffer_index + 1) % NUM_TX_BUFFERS);
 	if ((uart->tx_state != TX_WORKING) && (len)) {
-		uart->tx_dma_buffer_index = ((uart->tx_dma_buffer_index + 1) % NUM_TX_BUFFERS);
+		uart->tx_dma_buffer_index = uart->tx_curr_buffer_index;
 		// disable the DMA channel (It should already be disabled when the state is set to TX_IDLE)
 		dma_disable_channel(uart->hardware->tx.dma, uart->hardware->tx.channel);
 		// set: Source, Destination, and Amount (DMA channel must be disabled)
 		dma_set_peripheral_address(uart->hardware->tx.dma, uart->hardware->tx.channel, (uint32_t)&USART_DR(uart->hardware->usart));
 		dma_set_memory_address(uart->hardware->tx.dma, uart->hardware->tx.channel, (uint32_t)(uart->buffers[uart->tx_dma_buffer_index]));
 		dma_set_number_of_data(uart->hardware->tx.dma, uart->hardware->tx.channel, len);
+		uart->tx_curr_buffer_index = ((uart->tx_curr_buffer_index + 1) % NUM_TX_BUFFERS);
 		// set to (Working)
 		uart->tx_state = TX_WORKING;
 		// enable the uart TX DMA interrupt
@@ -386,9 +384,9 @@ void UART2_TX_DMA_ISR(void) { uart_TX_DMA_empty(&uarts[1]); }
 void UART3_TX_DMA_ISR(void) { uart_TX_DMA_empty(&uarts[2]); }
 void UART4_TX_DMA_ISR(void) { uart_TX_DMA_empty(&uarts[3]); }
 
-void send_rx(uint8_t ep, char * rx_buffer, int len) {
+void send_rx(uint8_t ep, uint8_t * rx_buffer, int len) {
 	if (cdcacm_get_config()) {
-		char reply_buf[sizeof(uint16_t) + RX_BUFFER_SIZE];
+		uint8_t reply_buf[sizeof(uint16_t) + RX_BUFFER_SIZE];
 		int i;
 		reply_buf[0] = 0;
 		reply_buf[1] = 0;

@@ -12,7 +12,7 @@
 #define NUM_TX_BUFFERS 2
 #define TX_BUFFER_SIZE CDCACM_PACKET_SIZE
 #define NUM_RX_BUFFERS 2
-#define RX_BUFFER_SIZE (CDCACM_PACKET_SIZE-1)
+#define RX_BUFFER_SIZE (CDCACM_PACKET_SIZE-3)
 
 /*** Interrupt priorities ***/
 /* Interrupt priorities.  Low numbers are high priority.
