@@ -501,8 +501,22 @@ static int cdcacm_control_request(usbd_device *dev,
 
 	switch(req->bRequest) {
 	case USB_CDC_REQ_SET_CONTROL_LINE_STATE:
-		/* Ignore if not for GDB interface */
-		return 1;
+		switch(req->wIndex) {
+		case 6:
+			usbuart_set_control_line_state(&uarts[ACM3_UART_INDEX], req->wValue);
+			return 1;
+		case 4:
+			usbuart_set_control_line_state(&uarts[ACM2_UART_INDEX], req->wValue);
+			return 1;
+		case 2:
+			usbuart_set_control_line_state(&uarts[ACM1_UART_INDEX], req->wValue);
+			return 1;
+		case 0:
+			usbuart_set_control_line_state(&uarts[ACM0_UART_INDEX], req->wValue);
+			return 1;
+		default:
+			return 0;
+		}
 	case USB_CDC_REQ_SET_LINE_CODING:
 		if(*len < sizeof(struct usb_cdc_line_coding))
 			return 0;

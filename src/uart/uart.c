@@ -345,7 +345,16 @@ void usbuart_set_line_coding(struct uart_t *dev, struct usb_cdc_line_coding *cod
 	set_uart_parameters(dev);
 }
 
-
+void usbuart_set_control_line_state(struct uart_t *dev, uint16_t value) {
+	if (value & ACM_CTRL_RTS) 
+		gpio_set(dev->hardware->rts.port, dev->hardware->rts.pin);
+	else
+		gpio_clear(dev->hardware->rts.port, dev->hardware->rts.pin);
+	if (value & ACM_CTRL_DTR)
+		gpio_set(dev->hardware->dtr.port, dev->hardware->dtr.pin);
+	else
+		gpio_clear(dev->hardware->dtr.port, dev->hardware->dtr.pin);
+}
 
 /*
  * Interrupt routines

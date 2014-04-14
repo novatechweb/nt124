@@ -58,5 +58,9 @@ void usbuart_usb_out_cb1(usbd_device *dev, uint8_t ep);
 void usbuart_usb_out_cb2(usbd_device *dev, uint8_t ep);
 void usbuart_usb_out_cb3(usbd_device *dev, uint8_t ep);
 void usbuart_usb_out_cb4(usbd_device *dev, uint8_t ep);
+void usbuart_set_control_line_state(struct uart_t *dev, uint16_t value);
+
+#define ACM_CTRL_DTR	0x1
+#define ACM_CTRL_RTS	0x2
 
 #endif /* __UART_H_ */
