@@ -102,7 +102,7 @@ uint32_t baud_list[] = {
 	 19200, 28800, 38400, 57600,115200,230400,
 };
 // NOTE: I an not certain these values are correct. (these are the values I got from my spredsheet)
-uint16_t tim_table[][6] = {
+uint32_t tim_table[][6] = {
 	// using rcc_clock_setup_in_hse_8mhz_out_72mhz():  rcc_ppre2_frequency == 24MHz
 
 	// 30 bits (3 frames)     33 bits (3 frames)     36 bits (3 frames)
@@ -121,11 +121,11 @@ uint16_t tim_table[][6] = {
 	{         0,  3125,              0,  3438,              0,  3750}, // 230400	0.000130208 	0.000143229 	0.00015625
 };
 void set_uart_parameters(struct uart_t *dev) {
-	uint8_t index = 0;
+	int index = 0;
 	// Default to the slowest speed (10bit frame)
 	uint32_t TIMx_PSC = tim_table[index][0];
 	uint32_t TIMx_CNT = tim_table[index][1];
-	for (index = sizeof(tim_table)/sizeof(tim_table[0]) - 1; index <= 0; index--) {
+	for (index = sizeof(tim_table)/sizeof(tim_table[0]) - 1; index >= 0; index--) {
 		// Loop from fastest baud to slowest baud
 		// look for baud value >= to the baud at index
 		if (dev->baud < baud_list[index]) {
@@ -148,6 +148,7 @@ void set_uart_parameters(struct uart_t *dev) {
 			TIMx_PSC = tim_table[index][2];
 			TIMx_CNT = tim_table[index][3];
 		}
+		break;
 	}
 	// Set values for the timer
 	timer_disable_counter(dev->hardware->timer);
