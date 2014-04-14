@@ -45,6 +45,7 @@ struct uart_t uarts[] = {
 		.tx_dma_buffer_index = (NUM_TX_BUFFERS - 1),
 		/* Hardware register values for UART */
 		.hardware = &uart1,
+		.ep = ACM0_ENDPOINT,
 	}, {	/* UART2 : ACM PORT4 */
 		.baud = INITIAL_BAUD,
 		.bits = INITIAL_BITS,
@@ -61,6 +62,7 @@ struct uart_t uarts[] = {
 		.tx_dma_buffer_index = (NUM_TX_BUFFERS - 1),
 		/* Hardware register values for UART */
 		.hardware = &uart2,
+		.ep = ACM3_ENDPOINT,
 	}, {	/* UART3 : ACM PORT3 */
 		.baud = INITIAL_BAUD,
 		.bits = INITIAL_BITS,
@@ -77,6 +79,7 @@ struct uart_t uarts[] = {
 		.tx_dma_buffer_index = (NUM_TX_BUFFERS - 1),
 		/* Hardware register values for UART */
 		.hardware = &uart3,
+		.ep = ACM2_ENDPOINT,
 	}, {	/* UART4 : ACM PORT2 */
 		.baud = INITIAL_BAUD,
 		.bits = INITIAL_BITS,
@@ -93,6 +96,7 @@ struct uart_t uarts[] = {
 		.tx_dma_buffer_index = (NUM_TX_BUFFERS - 1),
 		/* Hardware register values for UART */
 		.hardware = &uart4,
+		.ep = ACM1_ENDPOINT,
 	},
 };
 
@@ -284,13 +288,13 @@ void uart_init(void) {
 
 
 
-inline static void usbuart_usb_out_cb(struct uart_t *uart, usbd_device *dev, uint8_t ep) {
+inline static void usbuart_usb_out_cb(struct uart_t *uart, usbd_device *dev) {
 	int len;
 
 	while ((uart->tx_state == TX_WORKING) && (uart->tx_num_to_send)) {
 		// DMA is still working or the second buffer has some data
 	}
-	len = usbd_ep_read_packet(dev, ep, uart->buffers[uart->tx_curr_buffer_index], CDCACM_PACKET_SIZE);
+	len = usbd_ep_read_packet(dev, uart->ep, uart->buffers[uart->tx_curr_buffer_index], CDCACM_PACKET_SIZE);
 	if ((uart->tx_state != TX_WORKING) && (len)) {
 		uart->tx_dma_buffer_index = uart->tx_curr_buffer_index;
 		// disable the DMA channel (It should already be disabled when the state is set to TX_IDLE)
@@ -311,10 +315,10 @@ inline static void usbuart_usb_out_cb(struct uart_t *uart, usbd_device *dev, uin
 		uart->tx_num_to_send = len;
 	}
 }
-void usbuart_usb_out_cb1(usbd_device *dev, uint8_t ep) { usbuart_usb_out_cb(&uarts[0], dev, ACM0_ENDPOINT); (void) ep; }
-void usbuart_usb_out_cb2(usbd_device *dev, uint8_t ep) { usbuart_usb_out_cb(&uarts[1], dev, ACM3_ENDPOINT); (void) ep; }
-void usbuart_usb_out_cb3(usbd_device *dev, uint8_t ep) { usbuart_usb_out_cb(&uarts[2], dev, ACM2_ENDPOINT); (void) ep; }
-void usbuart_usb_out_cb4(usbd_device *dev, uint8_t ep) { usbuart_usb_out_cb(&uarts[3], dev, ACM1_ENDPOINT); (void) ep; }
+void usbuart_usb_out_cb1(usbd_device *dev, uint8_t ep) { usbuart_usb_out_cb(&uarts[0], dev); (void) ep; }
+void usbuart_usb_out_cb2(usbd_device *dev, uint8_t ep) { usbuart_usb_out_cb(&uarts[1], dev); (void) ep; }
+void usbuart_usb_out_cb3(usbd_device *dev, uint8_t ep) { usbuart_usb_out_cb(&uarts[2], dev); (void) ep; }
+void usbuart_usb_out_cb4(usbd_device *dev, uint8_t ep) { usbuart_usb_out_cb(&uarts[3], dev); (void) ep; }
 void usbuart_usb_in_cb(usbd_device *dev, uint8_t ep) { (void) dev; (void) ep; }
 void usbuart_set_line_coding(struct uart_t *dev, struct usb_cdc_line_coding *coding) {
 	dev->baud = coding->dwDTERate;
@@ -380,8 +384,16 @@ inline static void uart_TX_DMA_empty(struct uart_t *dev) {
 			nvic_enable_irq(dev->hardware->tx.dma_irqn);
 			dma_enable_channel(dev->hardware->tx.dma, dev->hardware->tx.channel);
 		} else {
+			uint8_t reply_buf[2];
+
 			dev->tx_num_to_send = 0;
 			dev->tx_state = TX_IDLE;
+
+			reply_buf[0] = ACM_CTRL_TXEMPTY;
+			reply_buf[1] = 0;
+
+			/* FIXME: What happens if a write is in progress? */
+			usbd_ep_write_packet(usbdev, dev->ep, reply_buf, 2);
 		}
 	}
 	if (dma_get_interrupt_flag(dev->hardware->tx.dma, dev->hardware->tx.channel, DMA_TEIF)) {
@@ -408,7 +420,7 @@ void send_rx(uint8_t ep, uint8_t * rx_buffer, int len) {
 }
 
 // TODO: Need to add in something to check for overwriting a buffer that was not already serviced
-inline static void uart_RX_DMA(struct uart_t *dev, uint8_t ep) {
+inline static void uart_RX_DMA(struct uart_t *dev) {
 	dma_disable_channel(dev->hardware->rx.dma, dev->hardware->rx.channel);
 	nvic_disable_irq(dev->hardware->rx.dma_irqn);
 	nvic_disable_irq(dev->hardware->timer_irqn);
@@ -425,7 +437,7 @@ inline static void uart_RX_DMA(struct uart_t *dev, uint8_t ep) {
 			dma_set_memory_address(dev->hardware->rx.dma, dev->hardware->rx.channel, (uint32_t)(dev->rx_buffer[0]));
 		}
 		dma_enable_channel(dev->hardware->rx.dma, dev->hardware->rx.channel);
-		send_rx(ep, dev->rx_buffer[rx_dma_index], RX_BUFFER_SIZE);
+		send_rx(dev->ep, dev->rx_buffer[rx_dma_index], RX_BUFFER_SIZE);
 		dev->rx_state &= ~RX_NEED_SERVICE;
 		nvic_enable_irq(dev->hardware->rx.dma_irqn);
 	}
@@ -442,10 +454,10 @@ inline static void uart_RX_DMA(struct uart_t *dev, uint8_t ep) {
 	// IRQ# for timer is always enabled
 	nvic_enable_irq(dev->hardware->timer_irqn);
 }
-void UART1_RX_DMA_ISR(void) { uart_RX_DMA(&uarts[0], ACM0_ENDPOINT); }
-void UART2_RX_DMA_ISR(void) { uart_RX_DMA(&uarts[1], ACM3_ENDPOINT); }
-void UART3_RX_DMA_ISR(void) { uart_RX_DMA(&uarts[2], ACM2_ENDPOINT); }
-void UART4_RX_DMA_ISR(void) { uart_RX_DMA(&uarts[3], ACM1_ENDPOINT); }
+void UART1_RX_DMA_ISR(void) { uart_RX_DMA(&uarts[0]); }
+void UART2_RX_DMA_ISR(void) { uart_RX_DMA(&uarts[1]); }
+void UART3_RX_DMA_ISR(void) { uart_RX_DMA(&uarts[2]); }
+void UART4_RX_DMA_ISR(void) { uart_RX_DMA(&uarts[3]); }
 
 // (re)start the timer for the RX delayed processing.
 // Whenever a new character is received the timer starts over
@@ -485,7 +497,7 @@ void UART2_RX_ISR(void) { uart_RX(&uarts[1]); }
 void UART3_RX_ISR(void) { uart_RX(&uarts[2]); }
 void UART4_RX_ISR(void) { uart_RX(&uarts[3]); }
 
-inline static void uart_RX_timer(struct uart_t *dev, uint8_t ep) {
+inline static void uart_RX_timer(struct uart_t *dev) {
 	uint16_t num_read;
 	uint8_t rx_dma_index = 0;
 	// stop RX
@@ -509,12 +521,12 @@ inline static void uart_RX_timer(struct uart_t *dev, uint8_t ep) {
 	// start RX DMA
 	nvic_enable_irq(dev->hardware->rx.dma_irqn);
 	dma_enable_channel(dev->hardware->rx.dma, dev->hardware->rx.channel);
-	send_rx(ep, dev->rx_buffer[rx_dma_index], num_read);
+	send_rx(dev->ep, dev->rx_buffer[rx_dma_index], num_read);
 	dev->rx_state &= ~RX_NEED_SERVICE;
 	// Enable RX interrupts once more
 	nvic_enable_irq(dev->hardware->irqn);
 }
-void UART1_RX_TIMER(void) { uart_RX_timer(&uarts[0], ACM0_ENDPOINT); }
-void UART2_RX_TIMER(void) { uart_RX_timer(&uarts[1], ACM3_ENDPOINT); }
-void UART3_RX_TIMER(void) { uart_RX_timer(&uarts[2], ACM2_ENDPOINT); }
-void UART4_RX_TIMER(void) { uart_RX_timer(&uarts[3], ACM1_ENDPOINT); }
+void UART1_RX_TIMER(void) { uart_RX_timer(&uarts[0]); }
+void UART2_RX_TIMER(void) { uart_RX_timer(&uarts[1]); }
+void UART3_RX_TIMER(void) { uart_RX_timer(&uarts[2]); }
+void UART4_RX_TIMER(void) { uart_RX_timer(&uarts[3]); }
