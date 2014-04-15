@@ -10,6 +10,7 @@
 #include <libopencm3/stm32/timer.h>
 #include <libopencm3/cm3/nvic.h>
 #include <libopencm3/usb/usbd.h>
+#include <libopencm3/stm32/usb.h>
 #include <libopencm3/usb/cdc.h>
 
 #define INITIAL_BAUD 1200
@@ -303,6 +304,8 @@ inline static void usbuart_usb_out_cb(struct uart_t *uart, usbd_device *dev) {
 	if ((uart->tx_state == TX_WORKING || uart->tx_state == TX_FULL) && (uart->tx_num_to_send)) {
 		// DMA is still working or the second buffer has some data
 		uart->tx_state = TX_FULL;
+		/* Clear the CTR_RX bit so we aren't notified again */
+		USB_CLR_EP_RX_CTR(uart->ep);
 	} else {
 		len = usbd_ep_read_packet(dev, uart->ep, uart->buffers[uart->tx_curr_buffer_index], CDCACM_PACKET_SIZE);
 		if ((uart->tx_state != TX_WORKING) && (len)) {
