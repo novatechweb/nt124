@@ -26,9 +26,15 @@ typedef enum {
 	TX_IDLE,        // Idle, tx_dma_buffer_index data has been transmitted
 	TX_WORKING,     // Working, tx_dma_buffer_index belongs to DMA
 	TX_ERROR,       // DMA Error, Transmission stoped!
+	TX_FULL,
 	TX_TYPE_COUNT,
 	TX_TYPE_UNKNOWN = TX_TYPE_COUNT
 } tx_state_type_e;
+typedef enum {
+	USB_TX_IDLE,        // Idle
+	USB_TX_WORKING,     // Sending
+	USB_TX_COLLISION    // We wanted to send but something already is
+} usb_tx_state_type_e;
 
 // the format of the usarts/uarts buffer data structure
 struct uart_t {
@@ -50,6 +56,8 @@ struct uart_t {
 	/* Hardware register values for UART */
 	struct platform_uart_t *hardware;
 	uint8_t ep;
+	volatile usb_tx_state_type_e usb_in_tx_state;
+	uint8_t ctrl_state;
 };
 
 void uart_init(void);

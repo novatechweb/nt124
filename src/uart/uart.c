@@ -46,6 +46,8 @@ struct uart_t uarts[] = {
 		/* Hardware register values for UART */
 		.hardware = &uart1,
 		.ep = ACM0_ENDPOINT,
+		.usb_in_tx_state = USB_TX_IDLE,
+		.ctrl_state = 0,
 	}, {	/* UART2 : ACM PORT4 */
 		.baud = INITIAL_BAUD,
 		.bits = INITIAL_BITS,
@@ -63,6 +65,8 @@ struct uart_t uarts[] = {
 		/* Hardware register values for UART */
 		.hardware = &uart2,
 		.ep = ACM3_ENDPOINT,
+		.usb_in_tx_state = USB_TX_IDLE,
+		.ctrl_state = 0,
 	}, {	/* UART3 : ACM PORT3 */
 		.baud = INITIAL_BAUD,
 		.bits = INITIAL_BITS,
@@ -80,6 +84,8 @@ struct uart_t uarts[] = {
 		/* Hardware register values for UART */
 		.hardware = &uart3,
 		.ep = ACM2_ENDPOINT,
+		.usb_in_tx_state = USB_TX_IDLE,
+		.ctrl_state = 0,
 	}, {	/* UART4 : ACM PORT2 */
 		.baud = INITIAL_BAUD,
 		.bits = INITIAL_BITS,
@@ -97,6 +103,8 @@ struct uart_t uarts[] = {
 		/* Hardware register values for UART */
 		.hardware = &uart4,
 		.ep = ACM1_ENDPOINT,
+		.usb_in_tx_state = USB_TX_IDLE,
+		.ctrl_state = 0,
 	},
 };
 
@@ -291,29 +299,32 @@ void uart_init(void) {
 inline static void usbuart_usb_out_cb(struct uart_t *uart, usbd_device *dev) {
 	int len;
 
-	while ((uart->tx_state == TX_WORKING) && (uart->tx_num_to_send)) {
+	nvic_disable_irq(uart->hardware->tx.dma_irqn);
+	if ((uart->tx_state == TX_WORKING || uart->tx_state == TX_FULL) && (uart->tx_num_to_send)) {
 		// DMA is still working or the second buffer has some data
+		uart->tx_state = TX_FULL;
+	} else {
+		len = usbd_ep_read_packet(dev, uart->ep, uart->buffers[uart->tx_curr_buffer_index], CDCACM_PACKET_SIZE);
+		if ((uart->tx_state != TX_WORKING) && (len)) {
+			uart->tx_dma_buffer_index = uart->tx_curr_buffer_index;
+			// disable the DMA channel (It should already be disabled when the state is set to TX_IDLE)
+			dma_disable_channel(uart->hardware->tx.dma, uart->hardware->tx.channel);
+			// set: Source, Destination, and Amount (DMA channel must be disabled)
+			dma_set_peripheral_address(uart->hardware->tx.dma, uart->hardware->tx.channel, (uint32_t)&USART_DR(uart->hardware->usart));
+			dma_set_memory_address(uart->hardware->tx.dma, uart->hardware->tx.channel, (uint32_t)(uart->buffers[uart->tx_dma_buffer_index]));
+			dma_set_number_of_data(uart->hardware->tx.dma, uart->hardware->tx.channel, len);
+			uart->tx_curr_buffer_index = ((uart->tx_curr_buffer_index + 1) % NUM_TX_BUFFERS);
+			// set to (Working)
+			uart->tx_state = TX_WORKING;
+			// enable the uart TX DMA interrupt
+			usart_enable_tx_dma(uart->hardware->usart);
+			// enable DMA channel
+			dma_enable_channel(uart->hardware->tx.dma, uart->hardware->tx.channel);
+		} else if (len) {
+			uart->tx_num_to_send = len;
+		}
 	}
-	len = usbd_ep_read_packet(dev, uart->ep, uart->buffers[uart->tx_curr_buffer_index], CDCACM_PACKET_SIZE);
-	if ((uart->tx_state != TX_WORKING) && (len)) {
-		uart->tx_dma_buffer_index = uart->tx_curr_buffer_index;
-		// disable the DMA channel (It should already be disabled when the state is set to TX_IDLE)
-		dma_disable_channel(uart->hardware->tx.dma, uart->hardware->tx.channel);
-		// set: Source, Destination, and Amount (DMA channel must be disabled)
-		dma_set_peripheral_address(uart->hardware->tx.dma, uart->hardware->tx.channel, (uint32_t)&USART_DR(uart->hardware->usart));
-		dma_set_memory_address(uart->hardware->tx.dma, uart->hardware->tx.channel, (uint32_t)(uart->buffers[uart->tx_dma_buffer_index]));
-		dma_set_number_of_data(uart->hardware->tx.dma, uart->hardware->tx.channel, len);
-		uart->tx_curr_buffer_index = ((uart->tx_curr_buffer_index + 1) % NUM_TX_BUFFERS);
-		// set to (Working)
-		uart->tx_state = TX_WORKING;
-		// enable the uart TX DMA interrupt
-		usart_enable_tx_dma(uart->hardware->usart);
-		nvic_enable_irq(uart->hardware->tx.dma_irqn);
-		// enable DMA channel
-		dma_enable_channel(uart->hardware->tx.dma, uart->hardware->tx.channel);
-	} else if (len) {
-		uart->tx_num_to_send = len;
-	}
+	nvic_enable_irq(uart->hardware->tx.dma_irqn);
 }
 void usbuart_usb_out_cb1(usbd_device *dev, uint8_t ep) { usbuart_usb_out_cb(&uarts[0], dev); (void) ep; }
 void usbuart_usb_out_cb2(usbd_device *dev, uint8_t ep) { usbuart_usb_out_cb(&uarts[1], dev); (void) ep; }
@@ -384,7 +395,6 @@ inline static void uart_TX_DMA_empty(struct uart_t *dev) {
 		dma_clear_interrupt_flags(dev->hardware->tx.dma, dev->hardware->tx.channel, DMA_TCIF);
 		if (dev->tx_num_to_send) {
 			// There is data in the next buffer, set the DMA to send it
-			dev->tx_state = TX_WORKING;
 			dev->tx_curr_buffer_index = ((dev->tx_curr_buffer_index + 1) % NUM_TX_BUFFERS);
 			dev->tx_dma_buffer_index = ((dev->tx_dma_buffer_index + 1) % NUM_TX_BUFFERS);
 			dma_set_peripheral_address(dev->hardware->tx.dma, dev->hardware->tx.channel, (uint32_t)&USART_DR(dev->hardware->usart));
@@ -394,17 +404,31 @@ inline static void uart_TX_DMA_empty(struct uart_t *dev) {
 			usart_enable_tx_dma(dev->hardware->usart);
 			nvic_enable_irq(dev->hardware->tx.dma_irqn);
 			dma_enable_channel(dev->hardware->tx.dma, dev->hardware->tx.channel);
+
+			if (dev->tx_state == TX_FULL) {
+				dev->tx_state = TX_WORKING;
+				dev->tx_num_to_send = usbd_ep_read_packet(usbdev, dev->ep, dev->buffers[dev->tx_curr_buffer_index], CDCACM_PACKET_SIZE);
+			} else {
+				dev->tx_state = TX_WORKING;
+			}
 		} else {
 			uint8_t reply_buf[2];
 
 			dev->tx_num_to_send = 0;
 			dev->tx_state = TX_IDLE;
 
-			reply_buf[0] = ACM_CTRL_TXEMPTY;
-			reply_buf[1] = 0;
+			if (dev->usb_in_tx_state == USB_TX_IDLE) {
+				reply_buf[0] = dev->ctrl_state | ACM_CTRL_TXEMPTY;
+				reply_buf[1] = 0;
 
-			/* FIXME: What happens if a write is in progress? */
-			usbd_ep_write_packet(usbdev, dev->ep, reply_buf, 2);
+				/* FIXME: What happens if a write is in progress? */
+				if (cdcacm_get_config()) {
+					while(usbd_ep_write_packet(usbdev, dev->ep, reply_buf, 2) == 0);
+				}
+			} else {
+				dev->ctrl_state |= ACM_CTRL_TXEMPTY; 
+				dev->usb_in_tx_state = USB_TX_COLLISION;
+			}
 		}
 	}
 	if (dma_get_interrupt_flag(dev->hardware->tx.dma, dev->hardware->tx.channel, DMA_TEIF)) {
@@ -417,16 +441,31 @@ void UART2_TX_DMA_ISR(void) { uart_TX_DMA_empty(&uarts[1]); }
 void UART3_TX_DMA_ISR(void) { uart_TX_DMA_empty(&uarts[2]); }
 void UART4_TX_DMA_ISR(void) { uart_TX_DMA_empty(&uarts[3]); }
 
-void send_rx(uint8_t ep, uint8_t * rx_buffer, int len) {
+void send_rx(struct uart_t *dev, uint8_t * rx_buffer, int len) {
 	if (cdcacm_get_config()) {
 		uint8_t reply_buf[sizeof(uint16_t) + RX_BUFFER_SIZE];
 		int i;
-		reply_buf[0] = 0;
+
+		dev->usb_in_tx_state = USB_TX_WORKING;
+		reply_buf[0] = dev->ctrl_state;
 		reply_buf[1] = 0;
 		for (i=0; i < len; i++) {
 			reply_buf[sizeof(uint16_t) + i] = rx_buffer[i];
 		}
-		usbd_ep_write_packet(usbdev, ep, reply_buf, len+2);
+		
+		while(usbd_ep_write_packet(usbdev, dev->ep, reply_buf, len+2) == 0);
+
+		/* Disable DMA TX IRQ and input control line IRQs while we 
+		 * check if something else tried to send */
+		nvic_disable_irq(dev->hardware->tx.dma_irqn);
+		if (dev->usb_in_tx_state == USB_TX_COLLISION) {
+			reply_buf[0] = dev->ctrl_state;
+			reply_buf[1] = 0;
+			while(usbd_ep_write_packet(usbdev, dev->ep, reply_buf, 2) == 0);
+			dev->ctrl_state &= ~ACM_CTRL_TXEMPTY;
+		}
+		nvic_enable_irq(dev->hardware->tx.dma_irqn);
+		dev->usb_in_tx_state = USB_TX_IDLE;
 	}
 }
 
@@ -448,7 +487,7 @@ inline static void uart_RX_DMA(struct uart_t *dev) {
 			dma_set_memory_address(dev->hardware->rx.dma, dev->hardware->rx.channel, (uint32_t)(dev->rx_buffer[0]));
 		}
 		dma_enable_channel(dev->hardware->rx.dma, dev->hardware->rx.channel);
-		send_rx(dev->ep, dev->rx_buffer[rx_dma_index], RX_BUFFER_SIZE);
+		send_rx(dev, dev->rx_buffer[rx_dma_index], RX_BUFFER_SIZE);
 		dev->rx_state &= ~RX_NEED_SERVICE;
 		nvic_enable_irq(dev->hardware->rx.dma_irqn);
 	}
@@ -532,7 +571,7 @@ inline static void uart_RX_timer(struct uart_t *dev) {
 	// start RX DMA
 	nvic_enable_irq(dev->hardware->rx.dma_irqn);
 	dma_enable_channel(dev->hardware->rx.dma, dev->hardware->rx.channel);
-	send_rx(dev->ep, dev->rx_buffer[rx_dma_index], num_read);
+	send_rx(dev, dev->rx_buffer[rx_dma_index], num_read);
 	dev->rx_state &= ~RX_NEED_SERVICE;
 	// Enable RX interrupts once more
 	nvic_enable_irq(dev->hardware->irqn);
