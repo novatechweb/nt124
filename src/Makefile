@@ -54,6 +54,9 @@ all: $(PROGRAM).bin $(PROGRAM).hex
 gdb: $(PROGRAM).elf
 	cgdb -d arm-cortexm3-eabi-gdb $^
 
+upload: all
+	scp usbacm.bin root@172.16.200.3:/lib/firmware/ntserial.bin
+
 $(PROGRAM).bin: $(PROGRAM).elf
 	@printf '  %s  -->  %s\n' $^ $@
 	$(Q)$(OBJCOPY) -O binary $^ $@
@@ -74,6 +77,6 @@ clean:
 	-$(Q)$(RM) $(addsuffix /mapfile, $(SUB_DIR) .)
 	-$(Q)$(RM) $(PROGRAM).elf $(PROGRAM).bin $(PROGRAM).hex
 
-.PHONY:	all clean gdb
+.PHONY:	all clean gdb upload
 
 -include *.d

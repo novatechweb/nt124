@@ -8,6 +8,9 @@ all:	libopencm3
 gdb: all
 	@$(MAKE) CROSS_COMPILE=$(CROSS_COMPILE) PLATFORM=$(PLATFORM) -C src gdb
 
+upload: all
+	@$(MAKE) CROSS_COMPILE=$(CROSS_COMPILE) PLATFORM=$(PLATFORM) -C src upload
+
 git_init:
 	@git init
 	@git add ./*

@@ -1,5 +1,6 @@
 #include "uart.h"
 
+#include <string.h>
 #include <stdint.h>
 #include <cdcacm.h>
 
@@ -18,6 +19,12 @@
 #define INITIAL_STOP_BITS USART_STOPBITS_1
 #define INITIAL_PARITY USART_PARITY_NONE
 #define INITIAL_FLOW_CONTROL USART_FLOWCONTROL_NONE
+
+
+
+#define BUFFER_SIZE 16
+uint8_t buffer[BUFFER_SIZE];
+
 
 
 // The data structure for the usb .....
@@ -307,7 +314,12 @@ inline static void usbuart_usb_out_cb(struct uart_t *uart, usbd_device *dev) {
 		/* Clear the CTR_RX bit so we aren't notified again */
 		USB_CLR_EP_RX_CTR(uart->ep);
 	} else {
-		len = usbd_ep_read_packet(dev, uart->ep, uart->buffers[uart->tx_curr_buffer_index], CDCACM_PACKET_SIZE);
+		if (dev == NULL) {
+			len = BUFFER_SIZE;
+			memcpy(uart->buffers[uart->tx_curr_buffer_index], buffer, len);
+		} else {
+			len = usbd_ep_read_packet(dev, uart->ep, uart->buffers[uart->tx_curr_buffer_index], CDCACM_PACKET_SIZE);
+		}
 		if ((uart->tx_state != TX_WORKING) && (len)) {
 			uart->tx_dma_buffer_index = uart->tx_curr_buffer_index;
 			// disable the DMA channel (It should already be disabled when the state is set to TX_IDLE)
@@ -374,6 +386,60 @@ void usbuart_set_line_coding(struct uart_t *dev, struct usb_cdc_line_coding *cod
 	set_uart_parameters(dev);
 }
 
+
+
+void test(void) {
+	int i;
+	// loop through each uart
+	for (i = 0; i < 4; i++) {
+		gpio_toggle(uarts[i].hardware->rts.port, uarts[i].hardware->rts.pin);
+		gpio_toggle(uarts[i].hardware->dtr.port, uarts[i].hardware->dtr.pin);
+		if (gpio_get(uarts[i].hardware->cts.port, uarts[i].hardware->cts.pin)) {
+			buffer[0] = ' ';
+			buffer[1] = ' ';
+			buffer[2] = ' ';
+		} else {
+			buffer[0] = 'c';
+			buffer[1] = 't';
+			buffer[2] = 's';
+		}
+		buffer[3] = ',';
+		if (gpio_get(uarts[i].hardware->dsr.port, uarts[i].hardware->dsr.pin)) {
+			buffer[4] = ' ';
+			buffer[5] = ' ';
+			buffer[6] = ' ';
+		} else {
+			buffer[4] = 'd';
+			buffer[5] = 's';
+			buffer[6] = 'r';
+		}
+		buffer[7] = ',';
+		if (gpio_get(uarts[i].hardware->dcd.port, uarts[i].hardware->dcd.pin)) {
+			buffer[8] = ' ';
+			buffer[9] = ' ';
+			buffer[10] = ' ';
+		} else {
+			buffer[8] = 'd';
+			buffer[9] = 'c';
+			buffer[10] = 'd';
+		}
+		buffer[11] = ',';
+		if (gpio_get(uarts[i].hardware->ri.port, uarts[i].hardware->ri.pin)) {
+			buffer[12] = ' ';
+			buffer[13] = ' ';
+		} else {
+			buffer[12] = 'r';
+			buffer[13] = 'i';
+		}
+		buffer[14] = '\r';
+		buffer[15] = '\n';
+		if (uarts[i].baud == 115200)
+			usbuart_usb_out_cb(&uarts[i], NULL);
+	}
+}
+
+
+
 void usbuart_set_control_line_state(struct uart_t *dev, uint16_t value) {
 	if (value & ACM_CTRL_RTS) 
 		gpio_set(dev->hardware->rts.port, dev->hardware->rts.pin);
@@ -419,7 +485,7 @@ inline static void uart_TX_DMA_empty(struct uart_t *dev) {
 
 			dev->tx_num_to_send = 0;
 			dev->tx_state = TX_IDLE;
-
+#if 0
 			if (dev->usb_in_tx_state == USB_TX_IDLE) {
 				reply_buf[0] = dev->ctrl_state | ACM_CTRL_TXEMPTY;
 				reply_buf[1] = 0;
@@ -432,6 +498,7 @@ inline static void uart_TX_DMA_empty(struct uart_t *dev) {
 				dev->ctrl_state |= ACM_CTRL_TXEMPTY; 
 				dev->usb_in_tx_state = USB_TX_COLLISION;
 			}
+#endif
 		}
 	}
 	if (dma_get_interrupt_flag(dev->hardware->tx.dma, dev->hardware->tx.channel, DMA_TEIF)) {

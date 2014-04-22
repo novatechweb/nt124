@@ -19,6 +19,9 @@ main(int argc, char **argv) {
 
 	while(1) {
 		__asm__("nop");
+		// wait for a second
+		platform_delay(10);
+		test();
 	}
 	
 	/* Should never get here */

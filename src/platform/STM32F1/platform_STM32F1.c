@@ -31,9 +31,6 @@ void platform_delay(uint32_t delay) {
 }
 
 void SYSTEMTICK_ISR(void) {
-	gpio_toggle(GPIOA, UNUSED_PORTA_PIN1 | UNUSED_PORTA_PIN2);
-	gpio_toggle(GPIOB, UNUSED_PORTB_PIN1);
-	gpio_toggle(GPIOC, UNUSED_PORTC_PIN1 | UNUSED_PORTC_PIN2 | UNUSED_PORTC_PIN3);
 	if(timeout_counter)
 		timeout_counter--;
 }
@@ -102,13 +99,4 @@ void platform_init(void) {
 	// enable systic
 	systick_interrupt_enable();
 	systick_counter_enable();
-	
-	{	// DEBUG: LEDs
-		gpio_set_mode(GPIOA, GPIO_MODE_OUTPUT_10_MHZ, GPIO_CNF_OUTPUT_PUSHPULL, UNUSED_PORTA_PIN1 | UNUSED_PORTA_PIN2);
-		gpio_set(GPIOA, UNUSED_PORTA_PIN1 | UNUSED_PORTA_PIN2);
-		gpio_set_mode(GPIOB, GPIO_MODE_OUTPUT_10_MHZ, GPIO_CNF_OUTPUT_PUSHPULL, UNUSED_PORTB_PIN1);
-		gpio_set(GPIOB, UNUSED_PORTB_PIN1);
-		gpio_set_mode(GPIOC, GPIO_MODE_OUTPUT_10_MHZ, GPIO_CNF_OUTPUT_PUSHPULL, UNUSED_PORTC_PIN1 | UNUSED_PORTC_PIN2 | UNUSED_PORTC_PIN3);
-		gpio_set(GPIOC, UNUSED_PORTC_PIN1 | UNUSED_PORTC_PIN2 | UNUSED_PORTC_PIN3);
-	}
 }
