@@ -60,6 +60,7 @@ struct platform_uart_t {
 	struct platform_input_pins_t ri;
 	struct platform_TX_t tx;
 	struct platform_output_pins_t rts;
+	struct platform_output_pins_t dir;
 	struct platform_output_pins_t dtr;
 };
 

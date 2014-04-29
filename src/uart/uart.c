@@ -376,12 +376,13 @@ void usbuart_set_line_coding(struct uart_t *dev, struct usb_cdc_line_coding *cod
 }
 
 void usbuart_set_control_line_state(struct uart_t *dev, uint16_t value) {
-	if (value & ACM_CTRL_RTS) 
-		gpio_clear(dev->hardware->rts.port, dev->hardware->rts.pin);
-		gpio_set(dev->hardware->dir.port, dev->hardware->dir.pin);
-	else
-		gpio_set(dev->hardware->rts.port, dev->hardware->rts.pin);
-		gpio_clear(dev->hardware->dir.port, dev->hardware->dir.pin);
+	if (value & ACM_CTRL_RTS) {
+			gpio_clear(dev->hardware->rts.port, dev->hardware->rts.pin);
+			gpio_set(dev->hardware->dir.port, dev->hardware->dir.pin);
+	} else {
+			gpio_set(dev->hardware->rts.port, dev->hardware->rts.pin);
+			gpio_clear(dev->hardware->dir.port, dev->hardware->dir.pin);
+	}
 	if (value & ACM_CTRL_DTR)
 		gpio_clear(dev->hardware->dtr.port, dev->hardware->dtr.pin);
 	else

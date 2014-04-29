@@ -57,7 +57,7 @@ struct platform_uart_t uart1 = {
 	},
 	.dir = {	// DIR
 		.port = GPIOC,
-		.pin = GPIO0,
+		.pin = GPIO4,
 		.cnf = GPIO_CNF_OUTPUT_PUSHPULL,
 	},
 	.dtr = {	// DTR
@@ -174,8 +174,8 @@ struct platform_uart_t uart3 = {
 	//	.cnf = GPIO_CNF_OUTPUT_ALTFN_PUSHPULL,
 	},
 	.dir = {	// DIR
-		.port = GPIOA,
-		.pin = GPIO7,
+		.port = GPIOC,
+		.pin = GPIO0,
 		.cnf = GPIO_CNF_OUTPUT_PUSHPULL,
 	},
 	.dtr = {	// DTR
@@ -232,8 +232,8 @@ struct platform_uart_t uart4 = {
 		.cnf = GPIO_CNF_OUTPUT_PUSHPULL,
 	},
 	.dir = {	// DIR
-		.port = GPIOC,
-		.pin = GPIO4,
+		.port = GPIOA,
+		.pin = GPIO7,
 		.cnf = GPIO_CNF_OUTPUT_PUSHPULL,
 	},
 	.dtr = {	// DTR
