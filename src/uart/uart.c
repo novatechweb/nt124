@@ -211,6 +211,7 @@ static void setup_uart_device(struct uart_t *dev) {
 		// OUTPUT PINS
 		gpio_set_mode(dev->hardware->tx.port, GPIO_MODE_OUTPUT_50_MHZ, dev->hardware->tx.cnf, dev->hardware->tx.pin);
 		gpio_set_mode(dev->hardware->rts.port, GPIO_MODE_OUTPUT_50_MHZ, dev->hardware->rts.cnf, dev->hardware->rts.pin);
+		gpio_set_mode(dev->hardware->dir.port, GPIO_MODE_OUTPUT_50_MHZ, dev->hardware->dir.cnf, dev->hardware->dir.pin);
 		gpio_set_mode(dev->hardware->dtr.port, GPIO_MODE_OUTPUT_50_MHZ, dev->hardware->dtr.cnf, dev->hardware->dtr.pin);
 		// INPUT PINS
 		gpio_set_mode(dev->hardware->rx.port, GPIO_MODE_INPUT, GPIO_CNF_INPUT_FLOAT, dev->hardware->rx.pin);
@@ -376,13 +377,15 @@ void usbuart_set_line_coding(struct uart_t *dev, struct usb_cdc_line_coding *cod
 
 void usbuart_set_control_line_state(struct uart_t *dev, uint16_t value) {
 	if (value & ACM_CTRL_RTS) 
-		gpio_set(dev->hardware->rts.port, dev->hardware->rts.pin);
-	else
 		gpio_clear(dev->hardware->rts.port, dev->hardware->rts.pin);
-	if (value & ACM_CTRL_DTR)
-		gpio_set(dev->hardware->dtr.port, dev->hardware->dtr.pin);
+		gpio_set(dev->hardware->dir.port, dev->hardware->dir.pin);
 	else
+		gpio_set(dev->hardware->rts.port, dev->hardware->rts.pin);
+		gpio_clear(dev->hardware->dir.port, dev->hardware->dir.pin);
+	if (value & ACM_CTRL_DTR)
 		gpio_clear(dev->hardware->dtr.port, dev->hardware->dtr.pin);
+	else
+		gpio_set(dev->hardware->dtr.port, dev->hardware->dtr.pin);
 }
 
 /*
