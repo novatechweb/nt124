@@ -31,9 +31,6 @@ void platform_delay(uint32_t delay) {
 }
 
 void SYSTEMTICK_ISR(void) {
-	gpio_toggle(GPIOA, UNUSED_PORTA_PIN1 | UNUSED_PORTA_PIN2);
-	gpio_toggle(GPIOB, UNUSED_PORTB_PIN1);
-	gpio_toggle(GPIOC, UNUSED_PORTC_PIN1 | UNUSED_PORTC_PIN2 | UNUSED_PORTC_PIN3);
 	if(timeout_counter)
 		timeout_counter--;
 }
