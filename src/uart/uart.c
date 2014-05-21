@@ -8,6 +8,7 @@
 #include <libopencm3/stm32/usart.h>
 #include <libopencm3/stm32/dma.h>
 #include <libopencm3/stm32/timer.h>
+#include <libopencm3/stm32/exti.h>
 #include <libopencm3/cm3/nvic.h>
 #include <libopencm3/usb/usbd.h>
 #include <libopencm3/stm32/usb.h>
@@ -185,6 +186,11 @@ static void disable_uart_irqs(struct uart_t *dev) {
 	nvic_disable_irq(dev->hardware->rx.dma_irqn);
 	nvic_disable_irq(dev->hardware->irqn);
 	nvic_disable_irq(dev->hardware->timer_irqn);
+	nvic_disable_irq(dev->hardware->cts.irqn);
+	nvic_disable_irq(dev->hardware->dsr.irqn);
+	nvic_disable_irq(dev->hardware->dcd.irqn);
+	if (dev->hardware->ri.irqn != NVIC_IRQ_COUNT)
+		nvic_disable_irq(dev->hardware->ri.irqn);
 }
 static void setup_uart_starting_interrupts(struct uart_t *dev) {
 	// set which interrupts to use
@@ -199,6 +205,11 @@ static void setup_uart_starting_interrupts(struct uart_t *dev) {
 	nvic_enable_irq(dev->hardware->rx.dma_irqn);
 	nvic_enable_irq(dev->hardware->irqn);
 	nvic_enable_irq(dev->hardware->timer_irqn);
+	nvic_enable_irq(dev->hardware->cts.irqn);
+	nvic_enable_irq(dev->hardware->dsr.irqn);
+	nvic_enable_irq(dev->hardware->dcd.irqn);
+	if (dev->hardware->ri.irqn != NVIC_IRQ_COUNT)
+		nvic_enable_irq(dev->hardware->ri.irqn);
 }
 static void setup_uart_device(struct uart_t *dev) {
 	// Setup the buffers
@@ -269,6 +280,22 @@ static void setup_uart_device(struct uart_t *dev) {
 		 * ?? timer_generate_event(dev->hardware->timer, uint32_t event(@ref tim_event_gen));
 		 */
 	}
+	{	// setup external interrupts for CTS, DSR, DCD and RI
+		// CTS
+		exti_select_source(dev->hardware->cts.pin, dev->hardware->cts.port);
+		exti_set_trigger(dev->hardware->cts.pin, EXTI_TRIGGER_BOTH);
+		// DSR
+		exti_select_source(dev->hardware->dsr.pin, dev->hardware->dsr.port);
+		exti_set_trigger(dev->hardware->dsr.pin, EXTI_TRIGGER_BOTH);
+		// DCD
+		exti_select_source(dev->hardware->dcd.pin, dev->hardware->dcd.port);
+		exti_set_trigger(dev->hardware->dcd.pin, EXTI_TRIGGER_BOTH);
+		if (dev->hardware->ri.irqn != NVIC_IRQ_COUNT) {
+			// setup external interrupts for RI if there is one
+			exti_select_source(dev->hardware->ri.pin, dev->hardware->ri.port);
+			exti_set_trigger(dev->hardware->ri.pin, EXTI_TRIGGER_BOTH);
+		}
+	}
 	
 	// Finally setup the uart port and enable the USART
 	set_uart_parameters(dev);
@@ -278,6 +305,11 @@ static void setup_uart_device(struct uart_t *dev) {
 	nvic_set_priority(dev->hardware->timer_irqn, IRQ_PRI_UART_TIM);
 	nvic_set_priority(dev->hardware->tx.dma_irqn, IRQ_PRI_UART_TX_DMA);
 	nvic_set_priority(dev->hardware->rx.dma_irqn, IRQ_PRI_UART_RX_DMA);
+	nvic_set_priority(dev->hardware->cts.irqn, IRQ_PRI_EXT_INT);
+	nvic_set_priority(dev->hardware->dsr.irqn, IRQ_PRI_EXT_INT);
+	nvic_set_priority(dev->hardware->dcd.irqn, IRQ_PRI_EXT_INT);
+	if (dev->hardware->ri.irqn != NVIC_IRQ_COUNT)
+		nvic_set_priority(dev->hardware->ri.irqn, IRQ_PRI_EXT_INT);
 	
 	// enable uart RX DMA channel
 	dma_enable_channel(dev->hardware->rx.dma, dev->hardware->rx.channel);
@@ -587,3 +619,35 @@ void UART1_RX_TIMER(void) { uart_RX_timer(&uarts[0]); }
 void UART2_RX_TIMER(void) { uart_RX_timer(&uarts[1]); }
 void UART3_RX_TIMER(void) { uart_RX_timer(&uarts[2]); }
 void UART4_RX_TIMER(void) { uart_RX_timer(&uarts[3]); }
+
+/*
+ * Interrupt routines for hardware control lines *
+ */
+
+void exti0_isr(void) {
+	exti_reset_request(EXTI0);
+}
+
+void exti1_isr(void) {
+	exti_reset_request(EXTI1);
+}
+
+void exti2_isr(void) {
+	exti_reset_request(EXTI2);
+}
+
+void exti3_isr(void) {
+	exti_reset_request(EXTI3);
+}
+
+void exti4_isr(void) {
+	exti_reset_request(EXTI4);
+}
+
+void exti9_5_isr(void) {
+	exti_reset_request(EXTI5 | EXTI6 | EXTI7 | EXTI8 | EXTI9);
+}
+
+void exti15_10_isr(void) {
+	exti_reset_request(EXTI12 | EXTI14 | EXTI15);
+}

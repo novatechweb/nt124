@@ -25,22 +25,22 @@ struct platform_uart_t uart1 = {
 	.cts = {	// CTS
 		.port = GPIOC,
 		.pin = GPIO8,
-		.irqn = 0xFF,
+		.irqn = NVIC_EXTI9_5_IRQ,
 	},
 	.dsr = {	// DSR
 		.port = GPIOC,
 		.pin = GPIO7,
-		.irqn = 0xFF,
+		.irqn = NVIC_EXTI9_5_IRQ,
 	},
 	.dcd = {	// DCD
 		.port = GPIOC,
 		.pin = GPIO6,
-		.irqn = 0xFF,
+		.irqn = NVIC_EXTI9_5_IRQ,
 	},
 	.ri =  {	// RI
 		.port = GPIOB,
 		.pin = GPIO0,
-		.irqn = 0xFF,
+		.irqn = NVIC_IRQ_COUNT,
 	},
 	.tx =  {	// TX
 		.port = GPIO_BANK_USART1_TX,
@@ -83,22 +83,22 @@ struct platform_uart_t uart2 = {
 	.cts = {	// CTS
 		.port = GPIO_BANK_USART2_CTS,
 		.pin = GPIO_USART2_CTS,
-		.irqn = 0xFF,
+		.irqn = NVIC_EXTI0_IRQ,
 	},
 	.dsr = {	// DSR
 		.port = GPIOC,
 		.pin = GPIO3,
-		.irqn = 0xFF,
+		.irqn = NVIC_EXTI3_IRQ,
 	},
 	.dcd = {	// DCD
 		.port = GPIOA,
 		.pin = GPIO4,
-		.irqn = 0xFF,
+		.irqn = NVIC_EXTI4_IRQ,
 	},
 	.ri =  {	// RI
 		.port = GPIOA,
 		.pin = GPIO5,
-		.irqn = 0xFF,
+		.irqn = NVIC_EXTI9_5_IRQ,
 	},
 	.tx =  {	// TX
 		.port = GPIO_BANK_USART2_TX,
@@ -142,22 +142,22 @@ struct platform_uart_t uart3 = {
 	.cts = {	// CTS
 		.port = GPIO_BANK_USART3_CTS,
 		.pin = GPIO_USART3_PR_CTS,
-		.irqn = 0xFF,
+		.irqn = NVIC_EXTI15_10_IRQ,
 	},
 	.dsr = {	// DSR
 		.port = GPIOB,
 		.pin = GPIO1,
-		.irqn = 0xFF,
+		.irqn = NVIC_EXTI1_IRQ,
 	},
 	.dcd = {	// DCD
 		.port = GPIOB,
 		.pin = GPIO12,
-		.irqn = 0xFF,
+		.irqn = NVIC_EXTI15_10_IRQ,
 	},
 	.ri  = {	// RI
 		.port = GPIOB,
 		.pin = GPIO15,
-		.irqn = 0xFF,
+		.irqn = NVIC_EXTI15_10_IRQ,
 	},
 	.tx =  {	// TX
 		.port = GPIO_BANK_USART3_TX,
@@ -201,22 +201,22 @@ struct platform_uart_t uart4 = {
 	.cts = {	// CTS
 		.port = GPIOD,
 		.pin = GPIO2,
-		.irqn = 0xFF,
+		.irqn = NVIC_EXTI2_IRQ,
 	},
 	.dsr = {	// DSR
 		.port = GPIOC,
 		.pin = GPIO14,
-		.irqn = 0xFF,
+		.irqn = NVIC_EXTI15_10_IRQ,
 	},
 	.dcd = {	// DCD
 		.port = GPIOB,
 		.pin = GPIO9,
-		.irqn = 0xFF,
+		.irqn = NVIC_EXTI9_5_IRQ,
 	},
 	.ri =  {	// RI
 		.port = GPIOB,
 		.pin = GPIO8,
-		.irqn = 0xFF,
+		.irqn = NVIC_IRQ_COUNT,
 	},
 	.tx =  {	// TX
 		.port = GPIO_BANK_UART4_TX,
