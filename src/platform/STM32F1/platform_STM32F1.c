@@ -1,6 +1,7 @@
 #include "platform_STM32F1.h"
 #include "platform_uart.h"
 #include "platform_usb.h"
+#include "platform.h"
 
 #include <stdint.h>
 
@@ -94,8 +95,8 @@ void platform_init(void) {
 	}
 	// Set priority of systic
 	// NOTE: I do not know how this priority pertains to all the others (It was copied out of BlackMagic code))
-	SCB_SHPR(11) &= ~((15 << 4) & 0xff);
-	SCB_SHPR(11) |= ((14 << 4) & 0xff);
+	SCB_SHPR(11) &= ~(15 << 4);
+	SCB_SHPR(11) |= IRQ_PRI_SYSTICK;
 	// enable systic
 	systick_interrupt_enable();
 	systick_counter_enable();
