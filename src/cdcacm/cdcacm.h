@@ -22,6 +22,9 @@
 #define ACM3_UART_OUT_CALL usbuart_usb_out_cb2
 #define ACM3_ENDPOINT 7
 
+/* Non-standard */
+#define USB_CDC_SET_FLOW_CONTROL	0x90
+
 extern volatile uint32_t *unique_id_p;
 
 void cdcacm_init(void);

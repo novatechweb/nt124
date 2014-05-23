@@ -603,6 +603,15 @@ uint16_t uart_get_control_line_state(struct uart_t *dev) {
 	return result;
 }
 
+void usbuart_set_flow_control(struct uart_t *dev, uint16_t value) {
+	if (value)
+		dev->flowcontrol = USART_FLOWCONTROL_CTS;
+	else
+		dev->flowcontrol = USART_FLOWCONTROL_NONE;
+
+	usart_set_flow_control(dev->hardware->usart, dev->flowcontrol);
+}
+
 /*
  * Interrupt routines
  */

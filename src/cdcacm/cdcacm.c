@@ -537,6 +537,23 @@ static int cdcacm_control_request(usbd_device *dev,
 		default:
 			return 0;
 		}
+	case USB_CDC_SET_FLOW_CONTROL:
+		switch(req->wIndex) {
+		case 6:
+			usbuart_set_flow_control(&uarts[ACM3_UART_INDEX], req->wValue);
+			return 1;
+		case 4:
+			usbuart_set_flow_control(&uarts[ACM2_UART_INDEX], req->wValue);
+			return 1;
+		case 2:
+			usbuart_set_flow_control(&uarts[ACM1_UART_INDEX], req->wValue);
+			return 1;
+		case 0:
+			usbuart_set_flow_control(&uarts[ACM0_UART_INDEX], req->wValue);
+			return 1;
+		default:
+			return 0;
+		}
 	}
 	return 0;
 }
