@@ -13,6 +13,8 @@
 #include <libopencm3/usb/usbd.h>
 #include <libopencm3/stm32/usb.h>
 #include <libopencm3/usb/cdc.h>
+#include <libopencm3/cm3/cortex.h>
+#include <libopencm3/cm3/systick.h>
 
 #define INITIAL_BAUD 1200
 #define INITIAL_BITS 8
@@ -30,9 +32,12 @@ extern struct platform_uart_t uart2;
 extern struct platform_uart_t uart3;
 extern struct platform_uart_t uart4;
 
+volatile bool g_systick_in_use = false;
+
 struct uart_t uarts[] = {
 	{   	/* UART1 : ACM PORT1 */
 		.baud = INITIAL_BAUD,
+		.baud_index = 0,
 		.bits = INITIAL_BITS,
 		.stopbits = INITIAL_STOP_BITS,
 		.parity = INITIAL_PARITY,
@@ -49,9 +54,11 @@ struct uart_t uarts[] = {
 		.hardware = &uart1,
 		.ep = ACM0_ENDPOINT,
 		.usb_in_tx_state = USB_TX_IDLE,
-		.ctrl_state = 0,
+		.tx_empty_count_down = -1,
+		.ctrl_count_down = -1,
 	}, {	/* UART2 : ACM PORT4 */
 		.baud = INITIAL_BAUD,
+		.baud_index = 0,
 		.bits = INITIAL_BITS,
 		.stopbits = INITIAL_STOP_BITS,
 		.parity = INITIAL_PARITY,
@@ -68,9 +75,11 @@ struct uart_t uarts[] = {
 		.hardware = &uart2,
 		.ep = ACM3_ENDPOINT,
 		.usb_in_tx_state = USB_TX_IDLE,
-		.ctrl_state = 0,
+		.tx_empty_count_down = -1,
+		.ctrl_count_down = -1,
 	}, {	/* UART3 : ACM PORT3 */
 		.baud = INITIAL_BAUD,
+		.baud_index = 0,
 		.bits = INITIAL_BITS,
 		.stopbits = INITIAL_STOP_BITS,
 		.parity = INITIAL_PARITY,
@@ -87,9 +96,11 @@ struct uart_t uarts[] = {
 		.hardware = &uart3,
 		.ep = ACM2_ENDPOINT,
 		.usb_in_tx_state = USB_TX_IDLE,
-		.ctrl_state = 0,
+		.tx_empty_count_down = -1,
+		.ctrl_count_down = -1,
 	}, {	/* UART4 : ACM PORT2 */
 		.baud = INITIAL_BAUD,
+		.baud_index = 0,
 		.bits = INITIAL_BITS,
 		.stopbits = INITIAL_STOP_BITS,
 		.parity = INITIAL_PARITY,
@@ -106,7 +117,8 @@ struct uart_t uarts[] = {
 		.hardware = &uart4,
 		.ep = ACM1_ENDPOINT,
 		.usb_in_tx_state = USB_TX_IDLE,
-		.ctrl_state = 0,
+		.tx_empty_count_down = -1,
+		.ctrl_count_down = -1,
 	},
 };
 
@@ -134,6 +146,151 @@ uint32_t tim_table[][6] = {
 	{         0,  6250,              0,  6875,              0,  7500}, // 115200	0.000260417 	0.000286458 	0.0003125
 	{         0,  3125,              0,  3438,              0,  3750}, // 230400	0.000130208 	0.000143229 	0.00015625
 };
+
+/* Time to delay TX empty notification, rounded up to nearest millisecond */
+int tx_empty_delay[] = {
+	32, //    300
+	8, //   1200
+	4, //   2400
+	2, //   4800
+	1, //   9600
+	1, //  14400
+	1, //  19200
+	1, //  28800
+	1, //  38400
+	1, //  57600
+	1, // 115200
+	1, // 230400
+};
+
+/* Time to buffer ctrl line changes rounded up to nearest millisecond */
+int ctrl_delay[] = {
+	512, //    300
+	256, //   1200
+	128, //   2400
+	64, //   4800
+	32, //   9600
+	22, //  14400
+	16, //  19200
+	11, //  28800
+	8, //  38400
+	6, //  57600
+	3, // 115200
+	2, // 230400
+};
+
+uint16_t uart_get_control_line_state(struct uart_t *dev);
+
+/*
+ * systick routines
+ */
+
+void schedule_ctrl_update(struct uart_t *dev, bool tx_empty) {
+	//FIXME
+	if (cdcacm_get_config()) {
+		cm_disable_interrupts();
+
+		/* Set appropriate down counter if it isn't already counting */
+		if (tx_empty && dev->tx_empty_count_down == -1)
+			dev->tx_empty_count_down = tx_empty_delay[dev->baud_index];
+		else if(!tx_empty && dev->ctrl_count_down == -1)
+			dev->ctrl_count_down = ctrl_delay[dev->baud_index];
+
+		if (!g_systick_in_use) {
+			systick_interrupt_enable();
+			systick_counter_enable();
+			g_systick_in_use = true;
+		}
+
+		cm_enable_interrupts();
+	}
+}
+
+void disable_systick_if_unused() {
+	int i;
+	bool systick_in_use = false;
+	
+	for (i = 0; i < sizeof(uarts)/sizeof(uarts[0]); i++) {
+		if (uarts[i].tx_empty_count_down != -1 || uarts[i].ctrl_count_down != -1) {
+			systick_in_use = true;
+			break;
+		}
+	}
+
+	if (!systick_in_use) {
+		systick_interrupt_disable();
+		systick_counter_disable();
+		g_systick_in_use = false;
+	}
+}
+
+void raw_ctrl_update_sent(struct uart_t *dev, bool tx_empty) {
+	if (tx_empty)
+		dev->tx_empty_count_down = -1;
+	
+	dev->ctrl_count_down = -1;
+}
+
+void ctrl_update_sent(struct uart_t *dev, bool tx_empty) {
+	cm_disable_interrupts();
+
+	if (g_systick_in_use) {
+		raw_ctrl_update_sent(dev, tx_empty);
+
+		disable_systick_if_unused();
+	}
+
+	cm_enable_interrupts();
+}
+
+bool send_ctrl_update(struct uart_t *dev, bool tx_empty) {
+	uint16_t reply;
+
+	if (dev->usb_in_tx_state == USB_TX_IDLE) {
+		reply = uart_get_control_line_state(dev);
+		if (tx_empty)
+			reply |= ACM_CTRL_TXEMPTY;
+
+		if (usbd_ep_write_packet(usbdev, dev->ep, &reply, 2) == 0)
+			return false;
+
+		raw_ctrl_update_sent(dev, tx_empty);
+		return true;
+	}
+	
+	return false;
+}
+
+void sys_tick_handler(void) {
+	int i;
+	bool update_sent = false;
+	
+	for (i = 0; i < sizeof(uarts)/sizeof(uarts[0]); i++) {
+		if (uarts[i].tx_empty_count_down == 0) {
+			if (send_ctrl_update(&uarts[i], true))
+				update_sent = true;
+		} else {
+			if (uarts[i].tx_empty_count_down > 0) {
+				uarts[i].tx_empty_count_down--;
+			}
+
+			if (uarts[i].ctrl_count_down == 0) {
+				if (send_ctrl_update(&uarts[i], false))
+					update_sent = true;
+			} else if (uarts[i].ctrl_count_down > 0) {
+				uarts[i].ctrl_count_down--;
+			}
+		}
+	}
+
+	if (update_sent)
+		disable_systick_if_unused();
+}
+
+/*
+ * uart routines
+ */
+
 void set_uart_parameters(struct uart_t *dev) {
 	int index = 0;
 	// Default to the slowest speed (10bit frame)
@@ -164,6 +321,7 @@ void set_uart_parameters(struct uart_t *dev) {
 		}
 		break;
 	}
+	dev->baud_index = index;
 	// Set values for the timer
 	timer_disable_counter(dev->hardware->timer);
 	timer_set_prescaler(dev->hardware->timer, TIMx_PSC);
@@ -179,6 +337,8 @@ void set_uart_parameters(struct uart_t *dev) {
 	usart_set_flow_control(dev->hardware->usart, dev->flowcontrol);
 	usart_set_mode(dev->hardware->usart, USART_MODE_TX_RX);
 	usart_enable(dev->hardware->usart);
+
+	schedule_ctrl_update(dev, false);
 }
 static void disable_uart_irqs(struct uart_t *dev) {
 	// disable all the interrupts
@@ -284,16 +444,20 @@ static void setup_uart_device(struct uart_t *dev) {
 		// CTS
 		exti_select_source(dev->hardware->cts.pin, dev->hardware->cts.port);
 		exti_set_trigger(dev->hardware->cts.pin, EXTI_TRIGGER_BOTH);
+		exti_enable_request(dev->hardware->cts.pin);
 		// DSR
 		exti_select_source(dev->hardware->dsr.pin, dev->hardware->dsr.port);
 		exti_set_trigger(dev->hardware->dsr.pin, EXTI_TRIGGER_BOTH);
+		exti_enable_request(dev->hardware->dsr.pin);
 		// DCD
 		exti_select_source(dev->hardware->dcd.pin, dev->hardware->dcd.port);
 		exti_set_trigger(dev->hardware->dcd.pin, EXTI_TRIGGER_BOTH);
+		exti_enable_request(dev->hardware->dcd.pin);
 		if (dev->hardware->ri.irqn != NVIC_IRQ_COUNT) {
 			// setup external interrupts for RI if there is one
 			exti_select_source(dev->hardware->ri.pin, dev->hardware->ri.port);
 			exti_set_trigger(dev->hardware->ri.pin, EXTI_TRIGGER_BOTH);
+			exti_enable_request(dev->hardware->ri.pin);
 		}
 	}
 	
@@ -317,14 +481,14 @@ static void setup_uart_device(struct uart_t *dev) {
 void uart_init(void) {
 	int i;
 	// disable irqs
-	for (i = 0; i < 4; i++)
+	for (i = 0; i < sizeof(uarts)/sizeof(uarts[0]); i++)
 		disable_uart_irqs(&uarts[i]);
 	uart_platform_init();
 	// Setup each uart and pins
-	for (i = 0; i < 4; i++)
+	for (i = 0; i < sizeof(uarts)/sizeof(uarts[0]); i++)
 		setup_uart_device(&uarts[i]);
 	// setup interrupts
-	for (i = 0; i < 4; i++)
+	for (i = 0; i < sizeof(uarts)/sizeof(uarts[0]); i++)
 		setup_uart_starting_interrupts(&uarts[i]);
 }
 
@@ -421,6 +585,24 @@ void usbuart_set_control_line_state(struct uart_t *dev, uint16_t value) {
 		gpio_set(dev->hardware->dtr.port, dev->hardware->dtr.pin);
 }
 
+uint16_t uart_get_control_line_state(struct uart_t *dev) {
+	uint16_t result = 0;
+
+	if (!gpio_get(dev->hardware->cts.port, dev->hardware->cts.pin))
+		result |= ACM_CTRL_CTS;
+	
+	if (!gpio_get(dev->hardware->dsr.port, dev->hardware->dsr.pin))
+		result |= ACM_CTRL_DSR;
+
+	if (!gpio_get(dev->hardware->dcd.port, dev->hardware->dcd.pin))
+		result |= ACM_CTRL_DCD;
+
+	if (!gpio_get(dev->hardware->ri.port, dev->hardware->ri.pin))
+		result |= ACM_CTRL_RI;
+
+	return result;
+}
+
 /*
  * Interrupt routines
  */
@@ -451,23 +633,10 @@ inline static void uart_TX_DMA_empty(struct uart_t *dev) {
 				dev->tx_state = TX_WORKING;
 			}
 		} else {
-			uint8_t reply_buf[2];
-
 			dev->tx_num_to_send = 0;
 			dev->tx_state = TX_IDLE;
 
-			if (dev->usb_in_tx_state == USB_TX_IDLE) {
-				reply_buf[0] = dev->ctrl_state | ACM_CTRL_TXEMPTY;
-				reply_buf[1] = 0;
-
-				/* FIXME: What happens if a write is in progress? */
-				if (cdcacm_get_config()) {
-					while(usbd_ep_write_packet(usbdev, dev->ep, reply_buf, 2) == 0);
-				}
-			} else {
-				dev->ctrl_state |= ACM_CTRL_TXEMPTY; 
-				dev->usb_in_tx_state = USB_TX_COLLISION;
-			}
+			schedule_ctrl_update(dev, true);
 		}
 	}
 	if (dma_get_interrupt_flag(dev->hardware->tx.dma, dev->hardware->tx.channel, DMA_TEIF)) {
@@ -483,27 +652,22 @@ void UART4_TX_DMA_ISR(void) { uart_TX_DMA_empty(&uarts[3]); }
 void send_rx(struct uart_t *dev, uint8_t * rx_buffer, int len) {
 	if (cdcacm_get_config()) {
 		uint8_t reply_buf[sizeof(uint16_t) + RX_BUFFER_SIZE];
+		uint16_t ctrl_state;
 		int i;
 
 		dev->usb_in_tx_state = USB_TX_WORKING;
-		reply_buf[0] = dev->ctrl_state;
-		reply_buf[1] = 0;
+		ctrl_state = uart_get_control_line_state(dev);
+		reply_buf[0] = (uint8_t)(ctrl_state & 0xff);
+		reply_buf[1] = (uint8_t)(ctrl_state >> 8);
+		
 		for (i=0; i < len; i++) {
 			reply_buf[sizeof(uint16_t) + i] = rx_buffer[i];
 		}
 		
 		while(usbd_ep_write_packet(usbdev, dev->ep, reply_buf, len+2) == 0);
 
-		/* Disable DMA TX IRQ and input control line IRQs while we 
-		 * check if something else tried to send */
-		nvic_disable_irq(dev->hardware->tx.dma_irqn);
-		if (dev->usb_in_tx_state == USB_TX_COLLISION) {
-			reply_buf[0] = dev->ctrl_state;
-			reply_buf[1] = 0;
-			while(usbd_ep_write_packet(usbdev, dev->ep, reply_buf, 2) == 0);
-			dev->ctrl_state &= ~ACM_CTRL_TXEMPTY;
-		}
-		nvic_enable_irq(dev->hardware->tx.dma_irqn);
+		ctrl_update_sent(dev, false);
+
 		dev->usb_in_tx_state = USB_TX_IDLE;
 	}
 }
@@ -624,30 +788,84 @@ void UART4_RX_TIMER(void) { uart_RX_timer(&uarts[3]); }
  * Interrupt routines for hardware control lines *
  */
 
+/*
+ * exti0 - uart2 CTS
+ */
 void exti0_isr(void) {
 	exti_reset_request(EXTI0);
+	schedule_ctrl_update(&uarts[1], false);
 }
 
+/*
+ * exti1 - uart3 DSR
+ */
 void exti1_isr(void) {
 	exti_reset_request(EXTI1);
+	schedule_ctrl_update(&uarts[2], false);
 }
 
+/*
+ * exti2 - uart4 CTS
+ */
 void exti2_isr(void) {
 	exti_reset_request(EXTI2);
+	schedule_ctrl_update(&uarts[3], false);
 }
 
+/*
+ * exti3 - uart2 DSR
+ */
 void exti3_isr(void) {
 	exti_reset_request(EXTI3);
+	schedule_ctrl_update(&uarts[1], false);
 }
 
+/* exti4 - uart2 DCD */
 void exti4_isr(void) {
 	exti_reset_request(EXTI4);
+	schedule_ctrl_update(&uarts[1], false);
 }
 
+/*
+ * exti5 - uart2 RI
+ * exti6 - uart1 DCD
+ * exti7 - uart1 DSR
+ * exti8 - uart1 CTS
+ * exti9 - uart4 DCD
+ */
 void exti9_5_isr(void) {
+	uint32_t flags = exti_get_flag_status(EXTI5 | EXTI6 | EXTI7 | EXTI8 | EXTI9);
 	exti_reset_request(EXTI5 | EXTI6 | EXTI7 | EXTI8 | EXTI9);
+	
+	if (flags & uarts[1].hardware->ri.pin)
+		schedule_ctrl_update(&uarts[1], false);
+
+	if (	flags & uarts[0].hardware->dcd.pin ||
+		flags & uarts[0].hardware->dsr.pin ||
+		flags & uarts[0].hardware->cts.pin)
+		schedule_ctrl_update(&uarts[0], false);
+
+	if (flags & uarts[3].hardware->dcd.pin)
+		schedule_ctrl_update(&uarts[1], false);
 }
 
+/*
+ * exti12 - uart3 DCD
+ * exti13 - uart3 CTS
+ * exti14 - uart4 DSR
+ * exti15 - uart3 RI
+ */
 void exti15_10_isr(void) {
-	exti_reset_request(EXTI12 | EXTI14 | EXTI15);
+	uint32_t flags = exti_get_flag_status(EXTI12 | EXTI13 | EXTI14 | EXTI15);
+	exti_reset_request(EXTI12 | EXTI13 | EXTI14 | EXTI15);
+
+	if (    flags & uarts[2].hardware->dcd.pin ||
+		flags & uarts[2].hardware->cts.pin ||
+		flags & uarts[2].hardware->ri.pin)
+		schedule_ctrl_update(&uarts[2], false);
+	
+	if (flags & uarts[3].hardware->dsr.pin)
+		schedule_ctrl_update(&uarts[3], false);
+	
 }
+

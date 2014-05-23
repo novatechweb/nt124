@@ -31,14 +31,14 @@ typedef enum {
 	TX_TYPE_UNKNOWN = TX_TYPE_COUNT
 } tx_state_type_e;
 typedef enum {
-	USB_TX_IDLE,        // Idle
-	USB_TX_WORKING,     // Sending
-	USB_TX_COLLISION    // We wanted to send but something already is
+	USB_TX_IDLE,	// Idle
+	USB_TX_WORKING	// Sending
 } usb_tx_state_type_e;
 
 // the format of the usarts/uarts buffer data structure
 struct uart_t {
 	uint32_t baud;
+	int baud_index; //Index to delay tables
 	uint32_t stopbits;
 	uint32_t parity;
 	uint32_t flowcontrol;
@@ -57,7 +57,8 @@ struct uart_t {
 	struct platform_uart_t *hardware;
 	uint8_t ep;
 	volatile usb_tx_state_type_e usb_in_tx_state;
-	uint8_t ctrl_state;
+	volatile int tx_empty_count_down;
+	volatile int ctrl_count_down;
 };
 
 void uart_init(void);
@@ -80,5 +81,6 @@ void usbuart_set_control_line_state(struct uart_t *dev, uint16_t value);
 #define ACM_CTRL_PARITY         0x20
 #define ACM_CTRL_OVERRUN        0x40
 #define ACM_CTRL_TXEMPTY	0x80
+#define ACM_CTRL_CTS		0x100
 
 #endif /* __UART_H_ */

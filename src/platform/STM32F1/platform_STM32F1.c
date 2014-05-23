@@ -20,23 +20,6 @@
 #define UNUSED_PORTC_PIN4 GPIO13
 #define UNUSED_PORTC_PIN5 GPIO15
 
-#define SYSTEMTICK_ISR sys_tick_handler
-
-
-volatile uint32_t timeout_counter;
-
-void platform_delay(uint32_t delay) {
-	// timeout_counter decrements once every 100 usec.
-	timeout_counter = delay;
-	while(timeout_counter);
-}
-
-void SYSTEMTICK_ISR(void) {
-	if(timeout_counter)
-		timeout_counter--;
-}
-
-
 void platform_reset_hardware(void) {
 	rcc_peripheral_reset(&RCC_APB2RSTR,
 		RCC_APB2RSTR_IOPDRST | RCC_APB2RSTR_IOPCRST |
@@ -88,18 +71,16 @@ void platform_init(void) {
 	gpio_clear(GPIO_BANK_JTCK_SWCLK, GPIO_JTCK_SWCLK);
 	// ● JTDO: Input floating - Already set
 
-	// Setup heartbeat timer (AHB = 72mhz) (freq = 10Hz)
-	if (! systick_set_frequency(10, 72000000)) {
-		systick_set_reload(900000);	// Interrupt us at 10 Hz
-		systick_set_clocksource(STK_CSR_CLKSOURCE_AHB_DIV8);
-	}
+	// Setup heartbeat timer (AHB = 72mhz) (freq = 1000Hz)
+	systick_set_frequency(1000, 72000000);
+	
 	// Set priority of systic
 	// NOTE: I do not know how this priority pertains to all the others (It was copied out of BlackMagic code))
 	SCB_SHPR(11) &= ~(15 << 4);
 	SCB_SHPR(11) |= IRQ_PRI_SYSTICK;
-	// enable systic
-	systick_interrupt_enable();
-	systick_counter_enable();
+	
+	systick_interrupt_disable();
+	systick_counter_disable();
 	
 	{	// DEBUG: LEDs
 		gpio_set_mode(GPIOA, GPIO_MODE_OUTPUT_10_MHZ, GPIO_CNF_OUTPUT_PUSHPULL, UNUSED_PORTA_PIN1 | UNUSED_PORTA_PIN2);

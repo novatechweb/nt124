@@ -20,10 +20,10 @@
  */
 #define IRQ_PRI_SYSTICK     (0 << 4)
 #define IRQ_PRI_UART_TX_DMA (1 << 4)
-#define IRQ_PRI_EXT_INT     (2 << 4)
-#define IRQ_PRI_UART_RX_DMA (3 << 4)
-#define IRQ_PRI_UART_TIM    (4 << 4)
-#define IRQ_PRI_USB         (5 << 4)
-#define IRQ_PRI_UART        (6 << 4)
+#define IRQ_PRI_UART_RX_DMA (2 << 4)
+#define IRQ_PRI_UART_TIM    (3 << 4)
+#define IRQ_PRI_USB         (4 << 4)
+#define IRQ_PRI_UART        (5 << 4)
+#define IRQ_PRI_EXT_INT     (6 << 4)
 
 #endif /* __PLATFORM_H_ */
