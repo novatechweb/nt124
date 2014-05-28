@@ -56,6 +56,7 @@ struct uart_t uarts[] = {
 		.usb_in_tx_state = USB_TX_IDLE,
 		.tx_empty_count_down = -1,
 		.ctrl_count_down = -1,
+		.ctrl_update_retries = 0,
 #ifdef UART_TRACE_ENABLED
 		.trace_count = 0,
 #endif
@@ -80,6 +81,7 @@ struct uart_t uarts[] = {
 		.usb_in_tx_state = USB_TX_IDLE,
 		.tx_empty_count_down = -1,
 		.ctrl_count_down = -1,
+		.ctrl_update_retries = 0,
 #ifdef UART_TRACE_ENABLED
 		.trace_count = 0,
 #endif
@@ -104,6 +106,7 @@ struct uart_t uarts[] = {
 		.usb_in_tx_state = USB_TX_IDLE,
 		.tx_empty_count_down = -1,
 		.ctrl_count_down = -1,
+		.ctrl_update_retries = 0,
 #ifdef UART_TRACE_ENABLED
 		.trace_count = 0,
 #endif
@@ -128,6 +131,7 @@ struct uart_t uarts[] = {
 		.usb_in_tx_state = USB_TX_IDLE,
 		.tx_empty_count_down = -1,
 		.ctrl_count_down = -1,
+		.ctrl_update_retries = 0,
 #ifdef UART_TRACE_ENABLED
 		.trace_count = 0,
 #endif
@@ -278,8 +282,12 @@ bool send_ctrl_update(struct uart_t *dev, bool tx_empty) {
 		if (tx_empty)
 			reply |= ACM_CTRL_TXEMPTY;
 
-		if (usbd_ep_write_packet(usbdev, dev->ep, &reply, 2) == 0)
-			return false;
+		if (usbd_ep_write_packet(usbdev, dev->ep, &reply, 2) == 0) {
+			dev->ctrl_update_retries++;
+			if( dev->ctrl_update_retries < 50 )
+				return false;
+		}
+		dev->ctrl_update_retries = 0;
 
 		raw_ctrl_update_sent(dev, tx_empty);
 		UART_TRACE(dev, __LINE__);

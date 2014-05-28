@@ -66,6 +66,7 @@ struct uart_t {
 	volatile usb_tx_state_type_e usb_in_tx_state;
 	volatile int tx_empty_count_down;
 	volatile int ctrl_count_down;
+	int ctrl_update_retries;
 #ifdef UART_TRACE_ENABLED
 	volatile uint16_t trace_buf[UART_TRACE_BUF_SIZE];
 	volatile uint32_t trace_count;
