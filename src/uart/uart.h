@@ -35,6 +35,13 @@ typedef enum {
 	USB_TX_WORKING	// Sending
 } usb_tx_state_type_e;
 
+#ifdef UART_TRACE_ENABLED
+#define UART_TRACE(dev, line) do_uart_trace(dev, line)
+#define UART_TRACE_BUF_SIZE 64
+#else
+#define UART_TRACE(dev, line)
+#endif
+
 // the format of the usarts/uarts buffer data structure
 struct uart_t {
 	uint32_t baud;
@@ -59,6 +66,10 @@ struct uart_t {
 	volatile usb_tx_state_type_e usb_in_tx_state;
 	volatile int tx_empty_count_down;
 	volatile int ctrl_count_down;
+#ifdef UART_TRACE_ENABLED
+	volatile uint16_t trace_buf[UART_TRACE_BUF_SIZE];
+	volatile uint32_t trace_count;
+#endif
 };
 
 void uart_init(void);

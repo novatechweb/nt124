@@ -56,6 +56,9 @@ struct uart_t uarts[] = {
 		.usb_in_tx_state = USB_TX_IDLE,
 		.tx_empty_count_down = -1,
 		.ctrl_count_down = -1,
+#ifdef UART_TRACE_ENABLED
+		.trace_count = 0,
+#endif
 	}, {	/* UART2 : ACM PORT4 */
 		.baud = INITIAL_BAUD,
 		.baud_index = 0,
@@ -77,6 +80,9 @@ struct uart_t uarts[] = {
 		.usb_in_tx_state = USB_TX_IDLE,
 		.tx_empty_count_down = -1,
 		.ctrl_count_down = -1,
+#ifdef UART_TRACE_ENABLED
+		.trace_count = 0,
+#endif
 	}, {	/* UART3 : ACM PORT3 */
 		.baud = INITIAL_BAUD,
 		.baud_index = 0,
@@ -98,6 +104,9 @@ struct uart_t uarts[] = {
 		.usb_in_tx_state = USB_TX_IDLE,
 		.tx_empty_count_down = -1,
 		.ctrl_count_down = -1,
+#ifdef UART_TRACE_ENABLED
+		.trace_count = 0,
+#endif
 	}, {	/* UART4 : ACM PORT2 */
 		.baud = INITIAL_BAUD,
 		.baud_index = 0,
@@ -119,6 +128,9 @@ struct uart_t uarts[] = {
 		.usb_in_tx_state = USB_TX_IDLE,
 		.tx_empty_count_down = -1,
 		.ctrl_count_down = -1,
+#ifdef UART_TRACE_ENABLED
+		.trace_count = 0,
+#endif
 	},
 };
 
@@ -182,6 +194,18 @@ int ctrl_delay[] = {
 uint16_t uart_get_control_line_state(struct uart_t *dev);
 
 /*
+ * uart trace
+ */
+#ifdef UART_TRACE_ENABLED
+void do_uart_trace(struct uart_t *dev, int line) {
+	cm_disable_interrupts();
+	dev->trace_buf[dev->trace_count % UART_TRACE_BUF_SIZE] = (uint16_t)line;
+	dev->trace_count++;
+	cm_enable_interrupts();
+}
+#endif
+
+/*
  * systick routines
  */
 
@@ -203,6 +227,7 @@ void schedule_ctrl_update(struct uart_t *dev, bool tx_empty) {
 		}
 
 		cm_enable_interrupts();
+		UART_TRACE(dev, __LINE__);
 	}
 }
 
@@ -241,12 +266,14 @@ void ctrl_update_sent(struct uart_t *dev, bool tx_empty) {
 	}
 
 	cm_enable_interrupts();
+	UART_TRACE(dev, __LINE__);
 }
 
 bool send_ctrl_update(struct uart_t *dev, bool tx_empty) {
 	uint16_t reply;
 
 	if (dev->usb_in_tx_state == USB_TX_IDLE) {
+		UART_TRACE(dev, __LINE__);
 		reply = uart_get_control_line_state(dev);
 		if (tx_empty)
 			reply |= ACM_CTRL_TXEMPTY;
@@ -255,6 +282,7 @@ bool send_ctrl_update(struct uart_t *dev, bool tx_empty) {
 			return false;
 
 		raw_ctrl_update_sent(dev, tx_empty);
+		UART_TRACE(dev, __LINE__);
 		return true;
 	}
 	
@@ -296,6 +324,7 @@ void set_uart_parameters(struct uart_t *dev) {
 	// Default to the slowest speed (10bit frame)
 	uint32_t TIMx_PSC = tim_table[index][0];
 	uint32_t TIMx_CNT = tim_table[index][1];
+	UART_TRACE(dev, __LINE__);
 	for (index = sizeof(tim_table)/sizeof(tim_table[0]) - 1; index >= 0; index--) {
 		// Loop from fastest baud to slowest baud
 		// look for baud value >= to the baud at index
@@ -498,12 +527,15 @@ inline static void usbuart_usb_out_cb(struct uart_t *uart, usbd_device *dev) {
 	int len;
 
 	nvic_disable_irq(uart->hardware->tx.dma_irqn);
+	UART_TRACE(uart, __LINE__);
 	if ((uart->tx_state == TX_WORKING || uart->tx_state == TX_FULL) && (uart->tx_num_to_send)) {
 		// DMA is still working or the second buffer has some data
 		uart->tx_state = TX_FULL;
 		/* Clear the CTR_RX bit so we aren't notified again */
 		USB_CLR_EP_RX_CTR(uart->ep);
+		UART_TRACE(uart, __LINE__);
 	} else {
+		UART_TRACE(uart, __LINE__);
 		len = usbd_ep_read_packet(dev, uart->ep, uart->buffers[uart->tx_curr_buffer_index], CDCACM_PACKET_SIZE);
 		if ((uart->tx_state != TX_WORKING) && (len)) {
 			uart->tx_dma_buffer_index = uart->tx_curr_buffer_index;
@@ -520,8 +552,10 @@ inline static void usbuart_usb_out_cb(struct uart_t *uart, usbd_device *dev) {
 			usart_enable_tx_dma(uart->hardware->usart);
 			// enable DMA channel
 			dma_enable_channel(uart->hardware->tx.dma, uart->hardware->tx.channel);
+			UART_TRACE(uart, __LINE__);
 		} else if (len) {
 			uart->tx_num_to_send = len;
+			UART_TRACE(uart, __LINE__);
 		}
 	}
 	nvic_enable_irq(uart->hardware->tx.dma_irqn);
@@ -532,6 +566,7 @@ void usbuart_usb_out_cb3(usbd_device *dev, uint8_t ep) { usbuart_usb_out_cb(&uar
 void usbuart_usb_out_cb4(usbd_device *dev, uint8_t ep) { usbuart_usb_out_cb(&uarts[3], dev); (void) ep; }
 void usbuart_usb_in_cb(usbd_device *dev, uint8_t ep) { (void) dev; (void) ep; }
 void usbuart_set_line_coding(struct uart_t *dev, struct usb_cdc_line_coding *coding) {
+	UART_TRACE(dev, __LINE__);
 	dev->baud = coding->dwDTERate;
 	switch(coding->bCharFormat) {
 	case 0:
@@ -572,6 +607,7 @@ void usbuart_set_line_coding(struct uart_t *dev, struct usb_cdc_line_coding *cod
 }
 
 void usbuart_set_control_line_state(struct uart_t *dev, uint16_t value) {
+	UART_TRACE(dev, __LINE__);
 	if (value & ACM_CTRL_RTS) {
 			gpio_clear(dev->hardware->rts.port, dev->hardware->rts.pin);
 			gpio_set(dev->hardware->dir.port, dev->hardware->dir.pin);
@@ -604,6 +640,7 @@ uint16_t uart_get_control_line_state(struct uart_t *dev) {
 }
 
 void usbuart_set_flow_control(struct uart_t *dev, uint16_t value) {
+	UART_TRACE(dev, __LINE__);
 	if (value)
 		dev->flowcontrol = USART_FLOWCONTROL_CTS;
 	else
@@ -620,6 +657,7 @@ inline static void uart_TX_DMA_empty(struct uart_t *dev) {
 	dma_disable_channel(dev->hardware->tx.dma, dev->hardware->tx.channel);
 	nvic_disable_irq(dev->hardware->tx.dma_irqn);
 	usart_disable_tx_dma(dev->hardware->usart);
+	UART_TRACE(dev, __LINE__);
 	if (dma_get_interrupt_flag(dev->hardware->tx.dma, dev->hardware->tx.channel, DMA_TCIF)) {
 		// the transmit buffer is empty, clear the interupt flag
 		dma_clear_interrupt_flags(dev->hardware->tx.dma, dev->hardware->tx.channel, DMA_TCIF);
@@ -638,12 +676,15 @@ inline static void uart_TX_DMA_empty(struct uart_t *dev) {
 			if (dev->tx_state == TX_FULL) {
 				dev->tx_state = TX_WORKING;
 				dev->tx_num_to_send = usbd_ep_read_packet(usbdev, dev->ep, dev->buffers[dev->tx_curr_buffer_index], CDCACM_PACKET_SIZE);
+				UART_TRACE(dev, __LINE__);
 			} else {
 				dev->tx_state = TX_WORKING;
+				UART_TRACE(dev, __LINE__);
 			}
 		} else {
 			dev->tx_num_to_send = 0;
 			dev->tx_state = TX_IDLE;
+			UART_TRACE(dev, __LINE__);
 
 			schedule_ctrl_update(dev, true);
 		}
@@ -651,6 +692,7 @@ inline static void uart_TX_DMA_empty(struct uart_t *dev) {
 	if (dma_get_interrupt_flag(dev->hardware->tx.dma, dev->hardware->tx.channel, DMA_TEIF)) {
 		dma_clear_interrupt_flags(dev->hardware->tx.dma, dev->hardware->tx.channel, DMA_TEIF);
 		dev->tx_state = TX_ERROR;
+		UART_TRACE(dev, __LINE__);
 	}
 }
 void UART1_TX_DMA_ISR(void) { uart_TX_DMA_empty(&uarts[0]); }
@@ -678,6 +720,7 @@ void send_rx(struct uart_t *dev, uint8_t * rx_buffer, int len) {
 		ctrl_update_sent(dev, false);
 
 		dev->usb_in_tx_state = USB_TX_IDLE;
+		UART_TRACE(dev, __LINE__);
 	}
 }
 
@@ -686,6 +729,7 @@ inline static void uart_RX_DMA(struct uart_t *dev) {
 	dma_disable_channel(dev->hardware->rx.dma, dev->hardware->rx.channel);
 	nvic_disable_irq(dev->hardware->rx.dma_irqn);
 	nvic_disable_irq(dev->hardware->timer_irqn);
+	UART_TRACE(dev, __LINE__);
 	if (dma_get_interrupt_flag(dev->hardware->rx.dma, dev->hardware->rx.channel, DMA_TCIF)) {
 		uint8_t rx_dma_index = 0;
 		dma_clear_interrupt_flags(dev->hardware->rx.dma, dev->hardware->rx.channel, DMA_TCIF);
@@ -702,6 +746,7 @@ inline static void uart_RX_DMA(struct uart_t *dev) {
 		send_rx(dev, dev->rx_buffer[rx_dma_index], RX_BUFFER_SIZE);
 		dev->rx_state &= ~RX_NEED_SERVICE;
 		nvic_enable_irq(dev->hardware->rx.dma_irqn);
+		UART_TRACE(dev, __LINE__);
 	}
 	if (dma_get_interrupt_flag(dev->hardware->rx.dma, dev->hardware->rx.channel, DMA_TEIF)) {
 		// DMA error was encountered
@@ -709,6 +754,7 @@ inline static void uart_RX_DMA(struct uart_t *dev) {
 		dma_clear_interrupt_flags(dev->hardware->rx.dma, dev->hardware->rx.channel, DMA_TEIF);
 		dev->rx_state |= RX_DMA_ERROR;
 		usart_disable(dev->hardware->usart);
+		UART_TRACE(dev, __LINE__);
 	}
 	// clear and disable the timer
 	timer_clear_flag(dev->hardware->timer, TIM_SR_UIF);
@@ -727,7 +773,9 @@ void UART4_RX_DMA_ISR(void) { uart_RX_DMA(&uarts[3]); }
 inline static void uart_RX(struct uart_t *dev) {
 	nvic_disable_irq(dev->hardware->irqn);
 	uint32_t uart_sr = USART_SR(dev->hardware->usart);
+	UART_TRACE(dev, __LINE__);
 	if (uart_sr & (USART_SR_PE | USART_SR_FE | USART_SR_NE | USART_SR_ORE)) {
+		UART_TRACE(dev, __LINE__);
 		// read character to clear the error flag
 		usart_recv(dev->hardware->usart);
 		// store which error occured
@@ -787,6 +835,7 @@ inline static void uart_RX_timer(struct uart_t *dev) {
 	dev->rx_state &= ~RX_NEED_SERVICE;
 	// Enable RX interrupts once more
 	nvic_enable_irq(dev->hardware->irqn);
+	UART_TRACE(dev, __LINE__);
 }
 void UART1_RX_TIMER(void) { uart_RX_timer(&uarts[0]); }
 void UART2_RX_TIMER(void) { uart_RX_timer(&uarts[1]); }
