@@ -663,7 +663,6 @@ void usbuart_set_flow_control(struct uart_t *dev, uint16_t value) {
 
 inline static void uart_TX_DMA_empty(struct uart_t *dev) {
 	dma_disable_channel(dev->hardware->tx.dma, dev->hardware->tx.channel);
-	nvic_disable_irq(dev->hardware->tx.dma_irqn);
 	usart_disable_tx_dma(dev->hardware->usart);
 	UART_TRACE(dev, __LINE__);
 	if (dma_get_interrupt_flag(dev->hardware->tx.dma, dev->hardware->tx.channel, DMA_TCIF)) {
@@ -678,7 +677,6 @@ inline static void uart_TX_DMA_empty(struct uart_t *dev) {
 			dma_set_number_of_data(dev->hardware->tx.dma, dev->hardware->tx.channel, dev->tx_num_to_send);
 			dev->tx_num_to_send = 0;
 			usart_enable_tx_dma(dev->hardware->usart);
-			nvic_enable_irq(dev->hardware->tx.dma_irqn);
 			dma_enable_channel(dev->hardware->tx.dma, dev->hardware->tx.channel);
 
 			if (dev->tx_state == TX_FULL) {
@@ -692,9 +690,9 @@ inline static void uart_TX_DMA_empty(struct uart_t *dev) {
 		} else {
 			dev->tx_num_to_send = 0;
 			dev->tx_state = TX_IDLE;
-			UART_TRACE(dev, __LINE__);
 
 			schedule_ctrl_update(dev, true);
+			UART_TRACE(dev, __LINE__);
 		}
 	}
 	if (dma_get_interrupt_flag(dev->hardware->tx.dma, dev->hardware->tx.channel, DMA_TEIF)) {
@@ -728,14 +726,12 @@ void send_rx(struct uart_t *dev, uint8_t * rx_buffer, int len) {
 		ctrl_update_sent(dev, false);
 
 		dev->usb_in_tx_state = USB_TX_IDLE;
-		UART_TRACE(dev, __LINE__);
 	}
 }
 
 // TODO: Need to add in something to check for overwriting a buffer that was not already serviced
 inline static void uart_RX_DMA(struct uart_t *dev) {
 	dma_disable_channel(dev->hardware->rx.dma, dev->hardware->rx.channel);
-	nvic_disable_irq(dev->hardware->rx.dma_irqn);
 	nvic_disable_irq(dev->hardware->timer_irqn);
 	UART_TRACE(dev, __LINE__);
 	if (dma_get_interrupt_flag(dev->hardware->rx.dma, dev->hardware->rx.channel, DMA_TCIF)) {
@@ -753,7 +749,6 @@ inline static void uart_RX_DMA(struct uart_t *dev) {
 		dma_enable_channel(dev->hardware->rx.dma, dev->hardware->rx.channel);
 		send_rx(dev, dev->rx_buffer[rx_dma_index], RX_BUFFER_SIZE);
 		dev->rx_state &= ~RX_NEED_SERVICE;
-		nvic_enable_irq(dev->hardware->rx.dma_irqn);
 		UART_TRACE(dev, __LINE__);
 	}
 	if (dma_get_interrupt_flag(dev->hardware->rx.dma, dev->hardware->rx.channel, DMA_TEIF)) {
@@ -779,7 +774,6 @@ void UART4_RX_DMA_ISR(void) { uart_RX_DMA(&uarts[3]); }
 // Whenever a new character is received the timer starts over
 // When the timer overflows the data in the DMA will be processed (Or when the DMA buffer is filled)
 inline static void uart_RX(struct uart_t *dev) {
-	nvic_disable_irq(dev->hardware->irqn);
 	uint32_t uart_sr = USART_SR(dev->hardware->usart);
 	UART_TRACE(dev, __LINE__);
 	if (uart_sr & (USART_SR_PE | USART_SR_FE | USART_SR_NE | USART_SR_ORE)) {
@@ -808,7 +802,7 @@ inline static void uart_RX(struct uart_t *dev) {
 		// IRQ# for timer is always enabled
 		nvic_enable_irq(dev->hardware->timer_irqn);
 	}
-	nvic_enable_irq(dev->hardware->irqn);
+	UART_TRACE(dev, __LINE__);
 }
 void UART1_RX_ISR(void) { uart_RX(&uarts[0]); }
 void UART2_RX_ISR(void) { uart_RX(&uarts[1]); }
@@ -822,6 +816,7 @@ inline static void uart_RX_timer(struct uart_t *dev) {
 	dma_disable_channel(dev->hardware->rx.dma, dev->hardware->rx.channel);
 	nvic_disable_irq(dev->hardware->rx.dma_irqn);
 	nvic_disable_irq(dev->hardware->irqn);
+	UART_TRACE(dev, __LINE__);
 	dev->rx_state |= RX_NEED_SERVICE;
 	// clear and disable the timer
 	timer_clear_flag(dev->hardware->timer, TIM_SR_UIF);
