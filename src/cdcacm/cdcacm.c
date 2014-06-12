@@ -571,25 +571,25 @@ static void cdcacm_set_config(usbd_device *dev, uint16_t wValue)
 	usbd_ep_setup(dev, 0x01, USB_ENDPOINT_ATTR_BULK,
 					CDCACM_PACKET_SIZE, ACM0_UART_OUT_CALL);
 	usbd_ep_setup(dev, 0x81, USB_ENDPOINT_ATTR_BULK,
-					CDCACM_PACKET_SIZE, usbuart_usb_in_cb);
+					CDCACM_PACKET_SIZE, ACM0_UART_IN_CALL);
 
 	/* Serial interface */
 	usbd_ep_setup(dev, 0x03, USB_ENDPOINT_ATTR_BULK,
 					CDCACM_PACKET_SIZE, ACM1_UART_OUT_CALL);
 	usbd_ep_setup(dev, 0x83, USB_ENDPOINT_ATTR_BULK,
-					CDCACM_PACKET_SIZE, usbuart_usb_in_cb);
+					CDCACM_PACKET_SIZE, ACM1_UART_IN_CALL);
 	
 	/* Serial interface */
 	usbd_ep_setup(dev, 0x05, USB_ENDPOINT_ATTR_BULK,
 					CDCACM_PACKET_SIZE, ACM2_UART_OUT_CALL);
 	usbd_ep_setup(dev, 0x85, USB_ENDPOINT_ATTR_BULK,
-					CDCACM_PACKET_SIZE, usbuart_usb_in_cb);
+					CDCACM_PACKET_SIZE, ACM2_UART_IN_CALL);
 	
 	/* Serial interface */
 	usbd_ep_setup(dev, 0x07, USB_ENDPOINT_ATTR_BULK,
 					CDCACM_PACKET_SIZE, ACM3_UART_OUT_CALL);
 	usbd_ep_setup(dev, 0x87, USB_ENDPOINT_ATTR_BULK,
-					CDCACM_PACKET_SIZE, usbuart_usb_in_cb);
+					CDCACM_PACKET_SIZE, ACM3_UART_IN_CALL);
 
 
 	usbd_register_control_callback(dev,

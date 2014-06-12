@@ -44,6 +44,8 @@ struct uart_t uarts[] = {
 		.flowcontrol = INITIAL_FLOW_CONTROL,
 		/* RX variables */
 		.rx_state = RX_SERVICED,
+		.num_read = 0,
+		.rx_dma_index = 0,
 		.rx_buffer = {{'\0'},{'\0'},},
 		/* TX variables */
 		.tx_state = TX_IDLE,
@@ -69,6 +71,8 @@ struct uart_t uarts[] = {
 		.flowcontrol = INITIAL_FLOW_CONTROL,
 		/* RX variables */
 		.rx_state = RX_SERVICED,
+		.num_read = 0,
+		.rx_dma_index = 0,
 		.rx_buffer = {{'\0'},{'\0'},},
 		/* TX variables */
 		.tx_state = TX_IDLE,
@@ -94,6 +98,8 @@ struct uart_t uarts[] = {
 		.flowcontrol = INITIAL_FLOW_CONTROL,
 		/* RX variables */
 		.rx_state = RX_SERVICED,
+		.num_read = 0,
+		.rx_dma_index = 0,
 		.rx_buffer = {{'\0'},{'\0'},},
 		/* TX variables */
 		.tx_state = TX_IDLE,
@@ -119,6 +125,8 @@ struct uart_t uarts[] = {
 		.flowcontrol = INITIAL_FLOW_CONTROL,
 		/* RX variables */
 		.rx_state = RX_SERVICED,
+		.num_read = 0,
+		.rx_dma_index = 0,
 		.rx_buffer = {{'\0'},{'\0'},},
 		/* TX variables */
 		.tx_state = TX_IDLE,
@@ -196,6 +204,7 @@ int ctrl_delay[] = {
 };
 
 uint16_t uart_get_control_line_state(struct uart_t *dev);
+void send_rx(struct uart_t *dev);
 
 /*
  * uart trace
@@ -568,11 +577,17 @@ inline static void usbuart_usb_out_cb(struct uart_t *uart, usbd_device *dev) {
 	}
 	nvic_enable_irq(uart->hardware->tx.dma_irqn);
 }
+
 void usbuart_usb_out_cb1(usbd_device *dev, uint8_t ep) { usbuart_usb_out_cb(&uarts[0], dev); (void) ep; }
 void usbuart_usb_out_cb2(usbd_device *dev, uint8_t ep) { usbuart_usb_out_cb(&uarts[1], dev); (void) ep; }
 void usbuart_usb_out_cb3(usbd_device *dev, uint8_t ep) { usbuart_usb_out_cb(&uarts[2], dev); (void) ep; }
 void usbuart_usb_out_cb4(usbd_device *dev, uint8_t ep) { usbuart_usb_out_cb(&uarts[3], dev); (void) ep; }
-void usbuart_usb_in_cb(usbd_device *dev, uint8_t ep) { (void) dev; (void) ep; }
+
+void usbuart_usb_in_cb1(usbd_device *dev, uint8_t ep) { send_rx(&uarts[0]); (void) dev; (void) ep; }
+void usbuart_usb_in_cb2(usbd_device *dev, uint8_t ep) { send_rx(&uarts[1]); (void) dev; (void) ep; }
+void usbuart_usb_in_cb3(usbd_device *dev, uint8_t ep) { send_rx(&uarts[2]); (void) dev; (void) ep; }
+void usbuart_usb_in_cb4(usbd_device *dev, uint8_t ep) { send_rx(&uarts[3]); (void) dev; (void) ep; }
+
 void usbuart_set_line_coding(struct uart_t *dev, struct usb_cdc_line_coding *coding) {
 	UART_TRACE(dev, __LINE__);
 	dev->baud = coding->dwDTERate;
@@ -706,49 +721,75 @@ void UART2_TX_DMA_ISR(void) { uart_TX_DMA_empty(&uarts[1]); }
 void UART3_TX_DMA_ISR(void) { uart_TX_DMA_empty(&uarts[2]); }
 void UART4_TX_DMA_ISR(void) { uart_TX_DMA_empty(&uarts[3]); }
 
-void send_rx(struct uart_t *dev, uint8_t * rx_buffer, int len) {
-	if (cdcacm_get_config()) {
-		uint8_t reply_buf[sizeof(uint16_t) + RX_BUFFER_SIZE];
-		uint16_t ctrl_state;
-		int i;
-
-		dev->usb_in_tx_state = USB_TX_WORKING;
-		ctrl_state = uart_get_control_line_state(dev);
-		reply_buf[0] = (uint8_t)(ctrl_state & 0xff);
-		reply_buf[1] = (uint8_t)(ctrl_state >> 8);
-		
-		for (i=0; i < len; i++) {
-			reply_buf[sizeof(uint16_t) + i] = rx_buffer[i];
-		}
-		
-		while(usbd_ep_write_packet(usbdev, dev->ep, reply_buf, len+2) == 0);
-
-		ctrl_update_sent(dev, false);
-
-		dev->usb_in_tx_state = USB_TX_IDLE;
+void process_rx(struct uart_t *dev) {
+	// get the number of characters read
+	dev->num_read = RX_BUFFER_SIZE - DMA_CNDTR(dev->hardware->rx.dma, dev->hardware->rx.channel);
+	// reset the DMA with the other buffer
+	dma_set_number_of_data(dev->hardware->rx.dma, dev->hardware->rx.channel, RX_BUFFER_SIZE);
+	if ((uint32_t)(dev->rx_buffer[0]) == DMA_CMAR(dev->hardware->rx.dma, dev->hardware->rx.channel)) {
+		dev->rx_dma_index = 0;
+		dma_set_memory_address(dev->hardware->rx.dma, dev->hardware->rx.channel, (uint32_t)(dev->rx_buffer[1]));
+	} else {
+		dev->rx_dma_index = 1;
+		dma_set_memory_address(dev->hardware->rx.dma, dev->hardware->rx.channel, (uint32_t)(dev->rx_buffer[0]));
 	}
+	dma_enable_channel(dev->hardware->rx.dma, dev->hardware->rx.channel);
+	dev->rx_state |= RX_NEED_SERVICE;
+	send_rx(dev);
+}
+
+void send_rx(struct uart_t *dev) {
+	nvic_disable_irq(dev->hardware->timer_irqn);
+	nvic_disable_irq(dev->hardware->rx.dma_irqn);
+	nvic_disable_irq(dev->hardware->irqn);
+	if (dev->rx_state & RX_NEED_SERVICE) {
+		if (cdcacm_get_config()) {
+			uint8_t reply_buf[sizeof(uint16_t) + RX_BUFFER_SIZE];
+			uint16_t ctrl_state;
+			uint8_t * rx_buffer = dev->rx_buffer[dev->rx_dma_index];
+			int len = (int) dev->num_read;
+			int i;
+
+			dev->usb_in_tx_state = USB_TX_WORKING;
+			ctrl_state = uart_get_control_line_state(dev);
+			reply_buf[0] = (uint8_t)(ctrl_state & 0xff);
+			reply_buf[1] = (uint8_t)(ctrl_state >> 8);
+			
+			for (i=0; i < len; i++) {
+				reply_buf[sizeof(uint16_t) + i] = rx_buffer[i];
+			}
+			
+			if(usbd_ep_write_packet(usbdev, dev->ep, reply_buf, len+2) == 0) {
+				return;
+			}
+
+			ctrl_update_sent(dev, false);
+
+			dev->usb_in_tx_state = USB_TX_IDLE;
+		}
+
+		// clear and disable the timer
+		timer_clear_flag(dev->hardware->timer, TIM_SR_UIF);
+		timer_disable_irq(dev->hardware->timer, TIM_DIER_UIE);
+
+		dev->rx_state &= ~RX_NEED_SERVICE;
+	}
+	
+	nvic_enable_irq(dev->hardware->timer_irqn);
+	nvic_enable_irq(dev->hardware->rx.dma_irqn);
+	nvic_enable_irq(dev->hardware->irqn);
 }
 
 // TODO: Need to add in something to check for overwriting a buffer that was not already serviced
 inline static void uart_RX_DMA(struct uart_t *dev) {
 	dma_disable_channel(dev->hardware->rx.dma, dev->hardware->rx.channel);
 	nvic_disable_irq(dev->hardware->timer_irqn);
+	nvic_disable_irq(dev->hardware->rx.dma_irqn);
+	nvic_disable_irq(dev->hardware->irqn);
 	UART_TRACE(dev, __LINE__);
 	if (dma_get_interrupt_flag(dev->hardware->rx.dma, dev->hardware->rx.channel, DMA_TCIF)) {
-		uint8_t rx_dma_index = 0;
 		dma_clear_interrupt_flags(dev->hardware->rx.dma, dev->hardware->rx.channel, DMA_TCIF);
-		dev->rx_state |= RX_NEED_SERVICE;
-		// reset the DMA with the other buffer
-		dma_set_number_of_data(dev->hardware->rx.dma, dev->hardware->rx.channel, RX_BUFFER_SIZE);
-		if ((uint32_t)(dev->rx_buffer[rx_dma_index]) == DMA_CMAR(dev->hardware->rx.dma, dev->hardware->rx.channel)) {
-			dma_set_memory_address(dev->hardware->rx.dma, dev->hardware->rx.channel, (uint32_t)(dev->rx_buffer[1]));
-		} else {
-			rx_dma_index = 1;
-			dma_set_memory_address(dev->hardware->rx.dma, dev->hardware->rx.channel, (uint32_t)(dev->rx_buffer[0]));
-		}
-		dma_enable_channel(dev->hardware->rx.dma, dev->hardware->rx.channel);
-		send_rx(dev, dev->rx_buffer[rx_dma_index], RX_BUFFER_SIZE);
-		dev->rx_state &= ~RX_NEED_SERVICE;
+		process_rx(dev);
 		UART_TRACE(dev, __LINE__);
 	}
 	if (dma_get_interrupt_flag(dev->hardware->rx.dma, dev->hardware->rx.channel, DMA_TEIF)) {
@@ -759,11 +800,6 @@ inline static void uart_RX_DMA(struct uart_t *dev) {
 		usart_disable(dev->hardware->usart);
 		UART_TRACE(dev, __LINE__);
 	}
-	// clear and disable the timer
-	timer_clear_flag(dev->hardware->timer, TIM_SR_UIF);
-	timer_disable_irq(dev->hardware->timer, TIM_DIER_UIE);
-	// IRQ# for timer is always enabled
-	nvic_enable_irq(dev->hardware->timer_irqn);
 }
 void UART1_RX_DMA_ISR(void) { uart_RX_DMA(&uarts[0]); }
 void UART2_RX_DMA_ISR(void) { uart_RX_DMA(&uarts[1]); }
@@ -810,34 +846,13 @@ void UART3_RX_ISR(void) { uart_RX(&uarts[2]); }
 void UART4_RX_ISR(void) { uart_RX(&uarts[3]); }
 
 inline static void uart_RX_timer(struct uart_t *dev) {
-	uint16_t num_read;
-	uint8_t rx_dma_index = 0;
 	// stop RX
 	dma_disable_channel(dev->hardware->rx.dma, dev->hardware->rx.channel);
 	nvic_disable_irq(dev->hardware->rx.dma_irqn);
 	nvic_disable_irq(dev->hardware->irqn);
+	nvic_disable_irq(dev->hardware->timer_irqn);
 	UART_TRACE(dev, __LINE__);
-	dev->rx_state |= RX_NEED_SERVICE;
-	// clear and disable the timer
-	timer_clear_flag(dev->hardware->timer, TIM_SR_UIF);
-	timer_disable_irq(dev->hardware->timer, TIM_DIER_UIE);
-	// get the number of characters read
-	num_read = RX_BUFFER_SIZE - DMA_CNDTR(dev->hardware->rx.dma, dev->hardware->rx.channel);
-	// reset the DMA with the other buffer
-	dma_set_number_of_data(dev->hardware->rx.dma, dev->hardware->rx.channel, RX_BUFFER_SIZE);
-	if ((uint32_t)(dev->rx_buffer[rx_dma_index]) == DMA_CMAR(dev->hardware->rx.dma, dev->hardware->rx.channel)) {
-		dma_set_memory_address(dev->hardware->rx.dma, dev->hardware->rx.channel, (uint32_t)(dev->rx_buffer[1]));
-	} else {
-		rx_dma_index = 1;
-		dma_set_memory_address(dev->hardware->rx.dma, dev->hardware->rx.channel, (uint32_t)(dev->rx_buffer[0]));
-	}
-	// start RX DMA
-	nvic_enable_irq(dev->hardware->rx.dma_irqn);
-	dma_enable_channel(dev->hardware->rx.dma, dev->hardware->rx.channel);
-	send_rx(dev, dev->rx_buffer[rx_dma_index], num_read);
-	dev->rx_state &= ~RX_NEED_SERVICE;
-	// Enable RX interrupts once more
-	nvic_enable_irq(dev->hardware->irqn);
+	process_rx(dev);
 	UART_TRACE(dev, __LINE__);
 }
 void UART1_RX_TIMER(void) { uart_RX_timer(&uarts[0]); }

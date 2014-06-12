@@ -52,6 +52,8 @@ struct uart_t {
 	uint8_t bits;
 	/* RX variables */
 	volatile rx_state_type_e rx_state;
+	volatile uint16_t num_read;
+	volatile uint8_t rx_dma_index;
 	// The asumption is made that we can handle one of the buffers before the other buffer is filled
 	uint8_t rx_buffer[NUM_RX_BUFFERS][RX_BUFFER_SIZE];
 	/* TX variables */
@@ -75,7 +77,10 @@ struct uart_t {
 
 void uart_init(void);
 void usbuart_set_line_coding(struct uart_t *dev, struct usb_cdc_line_coding *coding);
-void usbuart_usb_in_cb(usbd_device *dev, uint8_t ep);
+void usbuart_usb_in_cb1(usbd_device *dev, uint8_t ep);
+void usbuart_usb_in_cb2(usbd_device *dev, uint8_t ep);
+void usbuart_usb_in_cb3(usbd_device *dev, uint8_t ep);
+void usbuart_usb_in_cb4(usbd_device *dev, uint8_t ep);
 void usbuart_usb_out_cb1(usbd_device *dev, uint8_t ep);
 void usbuart_usb_out_cb2(usbd_device *dev, uint8_t ep);
 void usbuart_usb_out_cb3(usbd_device *dev, uint8_t ep);
