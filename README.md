@@ -1,4 +1,4 @@
-usbacm
+nt124
 ======
 
-code for a usb device with four ACMs connected each to a serialport
+code for a four port usb to serial converter
