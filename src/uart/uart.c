@@ -1,7 +1,7 @@
 #include "uart.h"
 
 #include <stdint.h>
-#include <cdcacm.h>
+#include <usb.h>
 
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/gpio.h>
@@ -224,7 +224,7 @@ void do_uart_trace(struct uart_t *dev, int line) {
 
 void schedule_ctrl_update(struct uart_t *dev, bool tx_empty) {
 	//FIXME
-	if (cdcacm_get_config()) {
+	if (nt124_get_config()) {
 		cm_disable_interrupts();
 
 		/* Set appropriate down counter if it isn't already counting */
@@ -743,7 +743,7 @@ void send_rx(struct uart_t *dev) {
 	nvic_disable_irq(dev->hardware->rx.dma_irqn);
 	nvic_disable_irq(dev->hardware->irqn);
 	if (dev->rx_state & RX_NEED_SERVICE) {
-		if (cdcacm_get_config()) {
+		if (nt124_get_config()) {
 			uint8_t reply_buf[sizeof(uint16_t) + RX_BUFFER_SIZE];
 			uint16_t ctrl_state;
 			uint8_t * rx_buffer = dev->rx_buffer[dev->rx_dma_index];

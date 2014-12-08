@@ -1,5 +1,5 @@
-#ifndef __CDCACM_H_
-#define __CDCACM_H_
+#ifndef __NT124_H_
+#define __NT124_H_
 
 #include <stdint.h>
 
@@ -31,8 +31,8 @@
 
 extern volatile uint32_t *unique_id_p;
 
-void cdcacm_init(void);
-int cdcacm_get_config(void);
-int cdcacm_get_dtr(void);
+void usb_init(void);
+int nt124_get_config(void);
+int nt124_get_dtr(void);
 
-#endif /* __CDCACM_H_ */
+#endif /* __NT124_H_ */

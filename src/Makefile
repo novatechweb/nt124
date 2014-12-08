@@ -1,4 +1,4 @@
-PROGRAM := usbacm
+PROGRAM := nt124
 BUILDDATE := `date +"%Y%m%d"`
 VERSION := 0.1
 VERSION_SUFFIX := NONE
@@ -39,7 +39,7 @@ Q := @
 # Program rules
 SUB_DIR = \
 	platform/$(PLATFORM) \
-	cdcacm \
+	usb \
 	uart
 
 include $(addsuffix /Makefile, $(SUB_DIR))

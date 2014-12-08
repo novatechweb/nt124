@@ -1,10 +1,8 @@
 #include <stdlib.h>
 #include <assert.h>
-//#include <stdint.h>
-//#include <stdbool.h>
 
 #include "platform/platform.h"
-#include "cdcacm/cdcacm.h"
+#include "usb/usb.h"
 #include "uart/uart.h"
 
 int
@@ -15,7 +13,7 @@ main(int argc, char **argv) {
 	platform_reset_hardware();
 	platform_init();
 	uart_init();
-	cdcacm_init();
+	usb_init();
 
 	while(1) {
 		__asm__("nop");
