@@ -57,6 +57,7 @@ struct uart_t uarts[] = {
 		.ep = ACM0_ENDPOINT,
 		.usb_in_tx_state = USB_TX_IDLE,
 		.tx_empty_count_down = -1,
+		.tx_empty = true,
 		.ctrl_count_down = -1,
 		.ctrl_update_retries = 0,
 #ifdef UART_TRACE_ENABLED
@@ -84,6 +85,7 @@ struct uart_t uarts[] = {
 		.ep = ACM3_ENDPOINT,
 		.usb_in_tx_state = USB_TX_IDLE,
 		.tx_empty_count_down = -1,
+		.tx_empty = true,
 		.ctrl_count_down = -1,
 		.ctrl_update_retries = 0,
 #ifdef UART_TRACE_ENABLED
@@ -111,6 +113,7 @@ struct uart_t uarts[] = {
 		.ep = ACM2_ENDPOINT,
 		.usb_in_tx_state = USB_TX_IDLE,
 		.tx_empty_count_down = -1,
+		.tx_empty = true,
 		.ctrl_count_down = -1,
 		.ctrl_update_retries = 0,
 #ifdef UART_TRACE_ENABLED
@@ -138,6 +141,7 @@ struct uart_t uarts[] = {
 		.ep = ACM1_ENDPOINT,
 		.usb_in_tx_state = USB_TX_IDLE,
 		.tx_empty_count_down = -1,
+		.tx_empty = true,
 		.ctrl_count_down = -1,
 		.ctrl_update_retries = 0,
 #ifdef UART_TRACE_ENABLED
@@ -288,7 +292,7 @@ bool send_ctrl_update(struct uart_t *dev, bool tx_empty) {
 	if (dev->usb_in_tx_state == USB_TX_IDLE) {
 		UART_TRACE(dev, __LINE__);
 		reply = uart_get_control_line_state(dev);
-		if (tx_empty)
+		if (dev->tx_empty)
 			reply |= ACM_CTRL_TXEMPTY;
 
 		if (usbd_ep_write_packet(usbdev, dev->ep, &reply, 2) == 0) {
@@ -312,6 +316,8 @@ void sys_tick_handler(void) {
 	
 	for (i = 0; i < sizeof(uarts)/sizeof(uarts[0]); i++) {
 		if (uarts[i].tx_empty_count_down == 0) {
+			if (uarts[i].tx_state == TX_IDLE)
+				uarts[i].tx_empty = true;
 			if (send_ctrl_update(&uarts[i], true))
 				update_sent = true;
 		} else {
@@ -555,6 +561,7 @@ inline static void usbuart_usb_out_cb(struct uart_t *uart, usbd_device *dev) {
 		UART_TRACE(uart, __LINE__);
 		len = usbd_ep_read_packet(dev, uart->ep, uart->buffers[uart->tx_curr_buffer_index], CDCACM_PACKET_SIZE);
 		if ((uart->tx_state != TX_WORKING) && (len)) {
+			uart->tx_empty = false;
 			uart->tx_dma_buffer_index = uart->tx_curr_buffer_index;
 			// disable the DMA channel (It should already be disabled when the state is set to TX_IDLE)
 			dma_disable_channel(uart->hardware->tx.dma, uart->hardware->tx.channel);
@@ -632,11 +639,11 @@ void usbuart_set_line_coding(struct uart_t *dev, struct usb_cdc_line_coding *cod
 void usbuart_set_control_line_state(struct uart_t *dev, uint16_t value) {
 	UART_TRACE(dev, __LINE__);
 	if (value & ACM_CTRL_RTS) {
-			gpio_clear(dev->hardware->rts.port, dev->hardware->rts.pin);
-			gpio_set(dev->hardware->dir.port, dev->hardware->dir.pin);
+		gpio_clear(dev->hardware->rts.port, dev->hardware->rts.pin);
+		gpio_set(dev->hardware->dir.port, dev->hardware->dir.pin);
 	} else {
-			gpio_set(dev->hardware->rts.port, dev->hardware->rts.pin);
-			gpio_clear(dev->hardware->dir.port, dev->hardware->dir.pin);
+		gpio_set(dev->hardware->rts.port, dev->hardware->rts.pin);
+		gpio_clear(dev->hardware->dir.port, dev->hardware->dir.pin);
 	}
 	if (value & ACM_CTRL_DTR)
 		gpio_clear(dev->hardware->dtr.port, dev->hardware->dtr.pin);
@@ -945,3 +952,10 @@ void exti15_10_isr(void) {
 	
 }
 
+uint8_t usbuart_get_txempty(struct uart_t *dev)
+{
+	if (dev->tx_empty)
+		return 1;
+	else
+		return 0;
+}

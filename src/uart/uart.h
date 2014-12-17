@@ -66,6 +66,7 @@ struct uart_t {
 	struct platform_uart_t *hardware;
 	uint8_t ep;
 	volatile usb_tx_state_type_e usb_in_tx_state;
+	bool tx_empty;
 	volatile int tx_empty_count_down;
 	volatile int ctrl_count_down;
 	int ctrl_update_retries;
@@ -87,6 +88,7 @@ void usbuart_usb_out_cb3(usbd_device *dev, uint8_t ep);
 void usbuart_usb_out_cb4(usbd_device *dev, uint8_t ep);
 void usbuart_set_control_line_state(struct uart_t *dev, uint16_t value);
 void usbuart_set_flow_control(struct uart_t *dev, uint16_t value);
+uint8_t usbuart_get_txempty(struct uart_t *dev);
 
 #define ACM_CTRL_DTR		0x1
 #define ACM_CTRL_RTS		0x2

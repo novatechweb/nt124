@@ -26,8 +26,8 @@
 #define ACM3_UART_IN_CALL usbuart_usb_in_cb2
 #define ACM3_ENDPOINT 7
 
-/* Non-standard */
-#define USB_CDC_SET_FLOW_CONTROL	0x90
+#define NT124_USB_REQ_SET_FLOW_CONTROL	0x90
+#define NT124_USB_REQ_GET_TXEMPTY	0x91
 
 extern volatile uint32_t *unique_id_p;
 

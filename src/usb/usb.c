@@ -221,7 +221,22 @@ static const char *usb_strings[] = {
 	"Port 4",
 };
 
-static int nt124_control_request(usbd_device *dev,
+const int uart_lookup[] = {
+	ACM0_UART_INDEX,
+	ACM1_UART_INDEX,
+	ACM2_UART_INDEX,
+	ACM3_UART_INDEX
+};
+
+struct uart_t * get_uart_from_index(uint16_t index)
+{
+	if (index > sizeof(uart_lookup) / sizeof(uart_lookup[0]) - 1)
+		return NULL;
+
+	return &uarts[uart_lookup[index]];
+}
+
+static int nt124_set_control_line_state_callback(usbd_device *dev,
 		struct usb_setup_data *req, uint8_t **buf, uint16_t *len,
 		void (**complete)(usbd_device *dev, struct usb_setup_data *req))
 {
@@ -229,64 +244,89 @@ static int nt124_control_request(usbd_device *dev,
 	(void)complete;
 	(void)buf;
 	(void)len;
+	struct uart_t *uart;
 
-	switch(req->bRequest) {
-	case USB_CDC_REQ_SET_CONTROL_LINE_STATE:
-		switch(req->wIndex) {
-		case 3:
-			usbuart_set_control_line_state(&uarts[ACM3_UART_INDEX], req->wValue);
-			return 1;
-		case 2:
-			usbuart_set_control_line_state(&uarts[ACM2_UART_INDEX], req->wValue);
-			return 1;
-		case 1:
-			usbuart_set_control_line_state(&uarts[ACM1_UART_INDEX], req->wValue);
-			return 1;
-		case 0:
-			usbuart_set_control_line_state(&uarts[ACM0_UART_INDEX], req->wValue);
-			return 1;
-		default:
-			return 0;
-		}
-	case USB_CDC_REQ_SET_LINE_CODING:
-		if(*len < sizeof(struct usb_cdc_line_coding))
-			return 0;
+	if (req->bRequest != USB_CDC_REQ_SET_CONTROL_LINE_STATE)
+		return USBD_REQ_NEXT_CALLBACK;
 
-		switch(req->wIndex) {
-		case 3:
-			usbuart_set_line_coding(&uarts[ACM3_UART_INDEX], (struct usb_cdc_line_coding*)*buf);
-			return 1;
-		case 2:
-			usbuart_set_line_coding(&uarts[ACM2_UART_INDEX], (struct usb_cdc_line_coding*)*buf);
-			return 1;
-		case 1:
-			usbuart_set_line_coding(&uarts[ACM1_UART_INDEX], (struct usb_cdc_line_coding*)*buf);
-			return 1;
-		case 0:
-			usbuart_set_line_coding(&uarts[ACM0_UART_INDEX], (struct usb_cdc_line_coding*)*buf);
-			return 1;
-		default:
-			return 0;
-		}
-	case USB_CDC_SET_FLOW_CONTROL:
-		switch(req->wIndex) {
-		case 3:
-			usbuart_set_flow_control(&uarts[ACM3_UART_INDEX], req->wValue);
-			return 1;
-		case 2:
-			usbuart_set_flow_control(&uarts[ACM2_UART_INDEX], req->wValue);
-			return 1;
-		case 1:
-			usbuart_set_flow_control(&uarts[ACM1_UART_INDEX], req->wValue);
-			return 1;
-		case 0:
-			usbuart_set_flow_control(&uarts[ACM0_UART_INDEX], req->wValue);
-			return 1;
-		default:
-			return 0;
-		}
-	}
-	return 0;
+	uart = get_uart_from_index(req->wIndex);
+	if (!uart)
+		return USBD_REQ_NOTSUPP;
+
+	usbuart_set_control_line_state(uart, req->wValue);
+
+	return USBD_REQ_HANDLED;
+}
+
+static int nt124_set_line_coding_callback(usbd_device *dev,
+		struct usb_setup_data *req, uint8_t **buf, uint16_t *len,
+		void (**complete)(usbd_device *dev, struct usb_setup_data *req))
+{
+	(void)dev;
+	(void)complete;
+	struct uart_t *uart;
+
+	if (req->bRequest != USB_CDC_REQ_SET_LINE_CODING)
+		return USBD_REQ_NEXT_CALLBACK;
+
+	uart = get_uart_from_index(req->wIndex);
+	if (!uart)
+		return USBD_REQ_NOTSUPP;
+
+	if(*len < sizeof(struct usb_cdc_line_coding))
+		return USBD_REQ_NOTSUPP;
+
+	usbuart_set_line_coding(uart, (struct usb_cdc_line_coding*)*buf);
+
+	return USBD_REQ_HANDLED;
+}
+
+static int nt124_set_flow_control_callback(usbd_device *dev,
+		struct usb_setup_data *req, uint8_t **buf, uint16_t *len,
+		void (**complete)(usbd_device *dev, struct usb_setup_data *req))
+{
+	(void)dev;
+	(void)complete;
+	(void)buf;
+	(void)len;
+	struct uart_t *uart;
+
+	if (req->bRequest !=  NT124_USB_REQ_SET_FLOW_CONTROL)
+		return USBD_REQ_NEXT_CALLBACK;
+
+	uart = get_uart_from_index(req->wIndex);
+	if (!uart)
+		return USBD_REQ_NOTSUPP;
+
+	usbuart_set_flow_control(uart, req->wValue);
+
+	return USBD_REQ_HANDLED;
+}
+
+uint8_t txempty_buffer;
+
+static int nt124_get_txempty_callback(usbd_device *dev,
+		struct usb_setup_data *req, uint8_t **buf, uint16_t *len,
+		void (**complete)(usbd_device *dev, struct usb_setup_data *req))
+{
+	(void)dev;
+	(void)complete;
+	register uint16_t pin_state;
+	struct uart_t *uart;
+
+	if (req->bRequest != NT124_USB_REQ_GET_TXEMPTY)
+		return USBD_REQ_NEXT_CALLBACK;
+
+	uart = get_uart_from_index(req->wIndex);
+	if (!uart)
+		return USBD_REQ_NOTSUPP;
+
+	txempty_buffer = usbuart_get_txempty(uart);
+
+	*buf = &txempty_buffer;
+	*len = 1;
+
+	return USBD_REQ_HANDLED;
 }
 
 int nt124_get_config(void)
@@ -322,11 +362,25 @@ static void nt124_set_config(usbd_device *dev, uint16_t wValue)
 	usbd_ep_setup(dev, 0x87, USB_ENDPOINT_ATTR_BULK,
 					CDCACM_PACKET_SIZE, ACM3_UART_IN_CALL);
 
+	usbd_register_control_callback(dev,
+			USB_REQ_TYPE_VENDOR,
+			USB_REQ_TYPE_DIRECTION | USB_REQ_TYPE_TYPE,
+			nt124_set_control_line_state_callback);
 
 	usbd_register_control_callback(dev,
-			USB_REQ_TYPE_CLASS | USB_REQ_TYPE_INTERFACE,
-			USB_REQ_TYPE_TYPE | USB_REQ_TYPE_RECIPIENT,
-			nt124_control_request);
+			USB_REQ_TYPE_VENDOR,
+			USB_REQ_TYPE_DIRECTION | USB_REQ_TYPE_TYPE,
+			nt124_set_line_coding_callback);
+
+	usbd_register_control_callback(dev,
+			USB_REQ_TYPE_VENDOR,
+			USB_REQ_TYPE_DIRECTION | USB_REQ_TYPE_TYPE,
+			nt124_set_flow_control_callback);
+
+	usbd_register_control_callback(dev,
+			USB_REQ_TYPE_VENDOR | USB_REQ_TYPE_IN,
+			USB_REQ_TYPE_DIRECTION | USB_REQ_TYPE_TYPE,
+			nt124_get_txempty_callback);
 }
 
 /* We need a special large control buffer for this device: */
