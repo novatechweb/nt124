@@ -1,5 +1,4 @@
 PROGRAM := nt124
-BUILDDATE := `date +"%Y%m%d"`
 VERSION := 0.1
 VERSION_SUFFIX := NONE
 
@@ -16,7 +15,6 @@ CFLAGS += \
 	-Wno-pointer-sign \
 	-Wno-char-subscripts\
 	-Wno-sign-compare \
-	-DBUILDDATE=\"$(BUILDDATE)\" \
 	-DVERSION=\"$(VERSION)\" \
 	-DVERSION_SUFFIX=\"$(VERSION_SUFFIX)\" \
 	-I../libopencm3/include \
