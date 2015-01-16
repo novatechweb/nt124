@@ -679,6 +679,16 @@ void usbuart_set_flow_control(struct uart_t *dev, uint16_t value) {
 	usart_set_flow_control(dev->hardware->usart, dev->flowcontrol);
 }
 
+void usart_send_break(uint32_t usart) {
+	USART_CR1(usart) |= USART_CR1_SBK;
+}
+
+void usbuart_send_break(struct uart_t *dev) {
+	UART_TRACE(dev, __LINE__);
+
+	usart_send_break(dev->hardware->usart);
+}
+
 /*
  * Interrupt routines
  */

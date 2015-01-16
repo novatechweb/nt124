@@ -291,7 +291,7 @@ static int nt124_set_flow_control_callback(usbd_device *dev,
 	(void)len;
 	struct uart_t *uart;
 
-	if (req->bRequest !=  NT124_USB_REQ_SET_FLOW_CONTROL)
+	if (req->bRequest != NT124_USB_REQ_SET_FLOW_CONTROL)
 		return USBD_REQ_NEXT_CALLBACK;
 
 	uart = get_uart_from_index(req->wIndex);
@@ -325,6 +325,29 @@ static int nt124_get_txempty_callback(usbd_device *dev,
 
 	*buf = &txempty_buffer;
 	*len = 1;
+
+	return USBD_REQ_HANDLED;
+}
+
+static int nt124_send_break_callback(usbd_device *dev,
+		struct usb_setup_data *req, uint8_t **buf, uint16_t *len,
+		void (**complete)(usbd_device *dev, struct usb_setup_data *req))
+{
+	(void)dev;
+	(void)complete;
+	(void)buf;
+	(void)len;
+	struct uart_t *uart;
+
+	if (req->bRequest != NT124_USB_REQ_SEND_BREAK)
+		return USBD_REQ_NEXT_CALLBACK;
+
+	uart = get_uart_from_index(req->wIndex);
+	if (!uart)
+		return USBD_REQ_NOTSUPP;
+
+	if (req->wValue == 0xffff)
+		usbuart_send_break(uart);
 
 	return USBD_REQ_HANDLED;
 }
@@ -376,6 +399,11 @@ static void nt124_set_config(usbd_device *dev, uint16_t wValue)
 			USB_REQ_TYPE_VENDOR,
 			USB_REQ_TYPE_DIRECTION | USB_REQ_TYPE_TYPE,
 			nt124_set_flow_control_callback);
+
+	usbd_register_control_callback(dev,
+			USB_REQ_TYPE_VENDOR,
+			USB_REQ_TYPE_DIRECTION | USB_REQ_TYPE_TYPE,
+			nt124_send_break_callback);
 
 	usbd_register_control_callback(dev,
 			USB_REQ_TYPE_VENDOR | USB_REQ_TYPE_IN,
