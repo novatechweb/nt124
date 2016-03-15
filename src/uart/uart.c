@@ -771,11 +771,19 @@ void send_rx(struct uart_t *dev) {
 			ctrl_state = uart_get_control_line_state(dev);
 			reply_buf[0] = (uint8_t)(ctrl_state & 0xff);
 			reply_buf[1] = (uint8_t)(ctrl_state >> 8);
-			
-			for (i=0; i < len; i++) {
-				reply_buf[sizeof(uint16_t) + i] = rx_buffer[i];
+
+			if (dev->bits == 8 && dev->parity != USART_PARITY_NONE) {
+				for (i=0; i < len; i++) {
+					/* Mask out parity bit */
+					reply_buf[sizeof(uint16_t) + i] = rx_buffer[i] & 0x7f;
+				}
 			}
-			
+			else {
+				for (i=0; i < len; i++) {
+					reply_buf[sizeof(uint16_t) + i] = rx_buffer[i];
+				}
+			}
+
 			if(usbd_ep_write_packet(usbdev, dev->ep, reply_buf, len+2) == 0) {
 				return;
 			}
