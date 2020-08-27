@@ -177,10 +177,10 @@ uint32_t tim_table[][6] = {
 
 /* Time to delay TX empty notification, rounded up to nearest millisecond */
 int tx_empty_delay[] = {
-	32, //    300
-	8, //   1200
-	4, //   2400
-	2, //   4800
+	64, //    300
+	16, //   1200
+	8, //   2400
+	4, //   4800
 	1, //   9600
 	1, //  14400
 	1, //  19200
