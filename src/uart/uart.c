@@ -392,6 +392,7 @@ void set_uart_parameters(struct uart_t *dev) {
 	usart_set_flow_control(dev->hardware->usart, dev->flowcontrol);
 	usart_set_mode(dev->hardware->usart, USART_MODE_TX_RX);
 	usart_enable(dev->hardware->usart);
+	gpio_clear(dev->hardware->dir.port, dev->hardware->dir.pin);
 
 	schedule_ctrl_update(dev, false);
 }
