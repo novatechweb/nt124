@@ -1,4 +1,4 @@
-PREFIX ?= arm-cortexm3-eabi
+PREFIX ?= arm-none-eabi
 CROSS_COMPILE ?= $(PREFIX)-
 PLATFORM ?= STM32F1
 
