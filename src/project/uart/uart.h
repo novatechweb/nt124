@@ -8,7 +8,7 @@
 #include <libopencm3/usb/usbd.h>
 #include <libopencm3/usb/cdc.h>
 
-#include <platform.h>
+#include "platform/platform.h"
 
 typedef enum {
 	RX_SERVICED,                // RX buffer has been taken care

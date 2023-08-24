@@ -1,7 +1,7 @@
 #include "platform_STM32F1.h"
 #include "platform_uart.h"
 #include "platform_usb.h"
-#include "platform.h"
+#include "platform/platform.h"
 
 #include <stdint.h>
 
@@ -34,7 +34,7 @@ void platform_reset_hardware(void) {
 
 void platform_init(void) {
 	// Setup oscillator
-	rcc_clock_setup_in_hse_8mhz_out_72mhz();
+	rcc_clock_setup_pll(&rcc_hse_configs[RCC_CLOCK_HSE8_72MHZ]);
 
 #ifdef BOOTLOADER
 	// Relocate interrupt vector table here

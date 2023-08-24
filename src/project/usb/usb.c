@@ -25,14 +25,18 @@
 #include <libopencm3/cm3/scb.h>
 #include <libopencm3/stm32/rcc.h>
 
-#include <uart.h>
+#include "uart/uart.h"
 
-#include "platform.h"
-#include "usb.h"
+#include "platform/platform.h"
+#include "usb/usb.h"
 
 #define BOARD_IDENT             "NovaTech USB to serial"
 
-#define SERIALNO_FLASH_LOCATION	0x8001ff0
+#ifdef BOOTLOADER
+#define SERIALNO_FLASH_LOCATION ((char*)0x8001ff0)
+#else
+#define SERIALNO_FLASH_LOCATION "12400000A0\0\0\0\0\0"
+#endif
 
 extern struct uart_t uarts[];
 
@@ -228,7 +232,7 @@ const int uart_lookup[] = {
 	ACM3_UART_INDEX
 };
 
-struct uart_t * get_uart_from_index(uint16_t index)
+static struct uart_t * get_uart_from_index(uint16_t index)
 {
 	if (index > sizeof(uart_lookup) / sizeof(uart_lookup[0]) - 1)
 		return NULL;
@@ -236,11 +240,11 @@ struct uart_t * get_uart_from_index(uint16_t index)
 	return &uarts[uart_lookup[index]];
 }
 
-static int nt124_set_control_line_state_callback(usbd_device *dev,
+static enum usbd_request_return_codes nt124_set_control_line_state_callback(usbd_device *dev_,
 		struct usb_setup_data *req, uint8_t **buf, uint16_t *len,
-		void (**complete)(usbd_device *dev, struct usb_setup_data *req))
+		usbd_control_complete_callback *complete)
 {
-	(void)dev;
+	(void)dev_;
 	(void)complete;
 	(void)buf;
 	(void)len;
@@ -258,11 +262,11 @@ static int nt124_set_control_line_state_callback(usbd_device *dev,
 	return USBD_REQ_HANDLED;
 }
 
-static int nt124_set_line_coding_callback(usbd_device *dev,
+static enum usbd_request_return_codes nt124_set_line_coding_callback(usbd_device *dev_,
 		struct usb_setup_data *req, uint8_t **buf, uint16_t *len,
-		void (**complete)(usbd_device *dev, struct usb_setup_data *req))
+		usbd_control_complete_callback *complete)
 {
-	(void)dev;
+	(void)dev_;
 	(void)complete;
 	struct uart_t *uart;
 
@@ -281,11 +285,11 @@ static int nt124_set_line_coding_callback(usbd_device *dev,
 	return USBD_REQ_HANDLED;
 }
 
-static int nt124_set_flow_control_callback(usbd_device *dev,
+static enum usbd_request_return_codes nt124_set_flow_control_callback(usbd_device *dev_,
 		struct usb_setup_data *req, uint8_t **buf, uint16_t *len,
-		void (**complete)(usbd_device *dev, struct usb_setup_data *req))
+		usbd_control_complete_callback *complete)
 {
-	(void)dev;
+	(void)dev_;
 	(void)complete;
 	(void)buf;
 	(void)len;
@@ -305,11 +309,11 @@ static int nt124_set_flow_control_callback(usbd_device *dev,
 
 uint8_t txempty_buffer;
 
-static int nt124_get_txempty_callback(usbd_device *dev,
+static enum usbd_request_return_codes nt124_get_txempty_callback(usbd_device *dev_,
 		struct usb_setup_data *req, uint8_t **buf, uint16_t *len,
-		void (**complete)(usbd_device *dev, struct usb_setup_data *req))
+		usbd_control_complete_callback *complete)
 {
-	(void)dev;
+	(void)dev_;
 	(void)complete;
 	register uint16_t pin_state;
 	struct uart_t *uart;
@@ -329,11 +333,11 @@ static int nt124_get_txempty_callback(usbd_device *dev,
 	return USBD_REQ_HANDLED;
 }
 
-static int nt124_send_break_callback(usbd_device *dev,
+static enum usbd_request_return_codes nt124_send_break_callback(usbd_device *dev_,
 		struct usb_setup_data *req, uint8_t **buf, uint16_t *len,
-		void (**complete)(usbd_device *dev, struct usb_setup_data *req))
+		usbd_control_complete_callback *complete)
 {
-	(void)dev;
+	(void)dev_;
 	(void)complete;
 	(void)buf;
 	(void)len;
@@ -357,55 +361,55 @@ int nt124_get_config(void)
 	return configured;
 }
 
-static void nt124_set_config(usbd_device *dev, uint16_t wValue)
+static void nt124_set_config(usbd_device *dev_, uint16_t wValue)
 {
 	configured = wValue;
 
 	/* Serial interface */
-	usbd_ep_setup(dev, 0x01, USB_ENDPOINT_ATTR_BULK,
+	usbd_ep_setup(dev_, 0x01, USB_ENDPOINT_ATTR_BULK,
 					CDCACM_PACKET_SIZE, ACM0_UART_OUT_CALL);
-	usbd_ep_setup(dev, 0x81, USB_ENDPOINT_ATTR_BULK,
+	usbd_ep_setup(dev_, 0x81, USB_ENDPOINT_ATTR_BULK,
 					CDCACM_PACKET_SIZE, ACM0_UART_IN_CALL);
 
 	/* Serial interface */
-	usbd_ep_setup(dev, 0x03, USB_ENDPOINT_ATTR_BULK,
+	usbd_ep_setup(dev_, 0x03, USB_ENDPOINT_ATTR_BULK,
 					CDCACM_PACKET_SIZE, ACM1_UART_OUT_CALL);
-	usbd_ep_setup(dev, 0x83, USB_ENDPOINT_ATTR_BULK,
+	usbd_ep_setup(dev_, 0x83, USB_ENDPOINT_ATTR_BULK,
 					CDCACM_PACKET_SIZE, ACM1_UART_IN_CALL);
 	
 	/* Serial interface */
-	usbd_ep_setup(dev, 0x05, USB_ENDPOINT_ATTR_BULK,
+	usbd_ep_setup(dev_, 0x05, USB_ENDPOINT_ATTR_BULK,
 					CDCACM_PACKET_SIZE, ACM2_UART_OUT_CALL);
-	usbd_ep_setup(dev, 0x85, USB_ENDPOINT_ATTR_BULK,
+	usbd_ep_setup(dev_, 0x85, USB_ENDPOINT_ATTR_BULK,
 					CDCACM_PACKET_SIZE, ACM2_UART_IN_CALL);
 	
 	/* Serial interface */
-	usbd_ep_setup(dev, 0x07, USB_ENDPOINT_ATTR_BULK,
+	usbd_ep_setup(dev_, 0x07, USB_ENDPOINT_ATTR_BULK,
 					CDCACM_PACKET_SIZE, ACM3_UART_OUT_CALL);
-	usbd_ep_setup(dev, 0x87, USB_ENDPOINT_ATTR_BULK,
+	usbd_ep_setup(dev_, 0x87, USB_ENDPOINT_ATTR_BULK,
 					CDCACM_PACKET_SIZE, ACM3_UART_IN_CALL);
 
-	usbd_register_control_callback(dev,
+	usbd_register_control_callback(dev_,
 			USB_REQ_TYPE_VENDOR,
 			USB_REQ_TYPE_DIRECTION | USB_REQ_TYPE_TYPE,
 			nt124_set_control_line_state_callback);
 
-	usbd_register_control_callback(dev,
+	usbd_register_control_callback(dev_,
 			USB_REQ_TYPE_VENDOR,
 			USB_REQ_TYPE_DIRECTION | USB_REQ_TYPE_TYPE,
 			nt124_set_line_coding_callback);
 
-	usbd_register_control_callback(dev,
+	usbd_register_control_callback(dev_,
 			USB_REQ_TYPE_VENDOR,
 			USB_REQ_TYPE_DIRECTION | USB_REQ_TYPE_TYPE,
 			nt124_set_flow_control_callback);
 
-	usbd_register_control_callback(dev,
+	usbd_register_control_callback(dev_,
 			USB_REQ_TYPE_VENDOR,
 			USB_REQ_TYPE_DIRECTION | USB_REQ_TYPE_TYPE,
 			nt124_send_break_callback);
 
-	usbd_register_control_callback(dev,
+	usbd_register_control_callback(dev_,
 			USB_REQ_TYPE_VENDOR | USB_REQ_TYPE_IN,
 			USB_REQ_TYPE_DIRECTION | USB_REQ_TYPE_TYPE,
 			nt124_get_txempty_callback);

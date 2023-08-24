@@ -1,7 +1,7 @@
-#include "uart.h"
+#include "uart/uart.h"
 
 #include <stdint.h>
-#include <usb.h>
+#include "usb/usb.h"
 
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/gpio.h>
@@ -11,7 +11,7 @@
 #include <libopencm3/stm32/exti.h>
 #include <libopencm3/cm3/nvic.h>
 #include <libopencm3/usb/usbd.h>
-#include <libopencm3/stm32/usb.h>
+#include <libopencm3/stm32/st_usbfs.h>
 #include <libopencm3/usb/cdc.h>
 #include <libopencm3/cm3/cortex.h>
 #include <libopencm3/cm3/systick.h>
@@ -226,7 +226,7 @@ void do_uart_trace(struct uart_t *dev, int line) {
  * systick routines
  */
 
-void schedule_ctrl_update(struct uart_t *dev, bool tx_empty) {
+static void schedule_ctrl_update(struct uart_t *dev, bool tx_empty) {
 	//FIXME
 	if (nt124_get_config()) {
 		cm_disable_interrupts();
@@ -248,8 +248,8 @@ void schedule_ctrl_update(struct uart_t *dev, bool tx_empty) {
 	}
 }
 
-void disable_systick_if_unused() {
-	int i;
+static void disable_systick_if_unused(void) {
+	uint16_t i;
 	bool systick_in_use = false;
 	
 	for (i = 0; i < sizeof(uarts)/sizeof(uarts[0]); i++) {
@@ -266,14 +266,14 @@ void disable_systick_if_unused() {
 	}
 }
 
-void raw_ctrl_update_sent(struct uart_t *dev, bool tx_empty) {
+static void raw_ctrl_update_sent(struct uart_t *dev, bool tx_empty) {
 	if (tx_empty)
 		dev->tx_empty_count_down = -1;
 	
 	dev->ctrl_count_down = -1;
 }
 
-void ctrl_update_sent(struct uart_t *dev, bool tx_empty) {
+static void ctrl_update_sent(struct uart_t *dev, bool tx_empty) {
 	cm_disable_interrupts();
 
 	if (g_systick_in_use) {
@@ -286,7 +286,7 @@ void ctrl_update_sent(struct uart_t *dev, bool tx_empty) {
 	UART_TRACE(dev, __LINE__);
 }
 
-bool send_ctrl_update(struct uart_t *dev, bool tx_empty) {
+static bool send_ctrl_update(struct uart_t *dev, bool tx_empty) {
 	uint16_t reply;
 
 	if (dev->usb_in_tx_state == USB_TX_IDLE) {
@@ -311,7 +311,7 @@ bool send_ctrl_update(struct uart_t *dev, bool tx_empty) {
 }
 
 void sys_tick_handler(void) {
-	int i;
+	uint16_t i;
 	bool update_sent = false;
 	
 	for (i = 0; i < sizeof(uarts)/sizeof(uarts[0]); i++) {
@@ -345,7 +345,7 @@ void sys_tick_handler(void) {
  * uart routines
  */
 
-void set_uart_parameters(struct uart_t *dev) {
+static void set_uart_parameters(struct uart_t *dev) {
 	int index = 0;
 	// Default to the slowest speed (10bit frame)
 	uint32_t TIMx_PSC = tim_table[index][0];
@@ -487,7 +487,20 @@ static void setup_uart_device(struct uart_t *dev) {
 	}
 	{	// setup timer for RX
 		// start/restart the timer back at a count of 0
-		timer_reset(dev->hardware->timer);
+		switch (dev->hardware->timer) {
+		case TIM2:
+			rcc_periph_reset_pulse(RST_TIM2);
+			break;
+		case TIM3:
+			rcc_periph_reset_pulse(RST_TIM3);
+			break;
+		case TIM4:
+			rcc_periph_reset_pulse(RST_TIM4);
+			break;
+		case TIM5:
+			rcc_periph_reset_pulse(RST_TIM5);
+			break;
+		}
 		timer_set_mode(dev->hardware->timer, TIM_CR1_CKD_CK_INT, TIM_CR1_CMS_EDGE, TIM_CR1_DIR_UP);
 		/* TODO: Consider setting these
 		 * timer_one_shot_mode(dev->hardware->timer);
@@ -535,7 +548,7 @@ static void setup_uart_device(struct uart_t *dev) {
 	dma_enable_channel(dev->hardware->rx.dma, dev->hardware->rx.channel);
 }
 void uart_init(void) {
-	int i;
+	uint16_t i;
 	// disable irqs
 	for (i = 0; i < sizeof(uarts)/sizeof(uarts[0]); i++)
 		disable_uart_irqs(&uarts[i]);
@@ -682,7 +695,7 @@ void usbuart_set_flow_control(struct uart_t *dev, uint16_t value) {
 	usart_set_flow_control(dev->hardware->usart, dev->flowcontrol);
 }
 
-void usart_send_break(uint32_t usart) {
+static void usart_send_break(uint32_t usart) {
 	USART_CR1(usart) |= USART_CR1_SBK;
 }
 
@@ -741,7 +754,7 @@ void UART2_TX_DMA_ISR(void) { uart_TX_DMA_empty(&uarts[1]); }
 void UART3_TX_DMA_ISR(void) { uart_TX_DMA_empty(&uarts[2]); }
 void UART4_TX_DMA_ISR(void) { uart_TX_DMA_empty(&uarts[3]); }
 
-void process_rx(struct uart_t *dev) {
+static void process_rx(struct uart_t *dev) {
 	// get the number of characters read
 	dev->num_read = RX_BUFFER_SIZE - DMA_CNDTR(dev->hardware->rx.dma, dev->hardware->rx.channel);
 	// reset the DMA with the other buffer

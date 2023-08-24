@@ -3,8 +3,8 @@
 
 #include <stdint.h>
 
-#include <platform.h>
-#include <uart.h>
+#include "platform/platform.h"
+#include "uart/uart.h"
 
 #define ACM0_UART_INDEX 0
 #define ACM0_UART_OUT_CALL usbuart_usb_out_cb1
