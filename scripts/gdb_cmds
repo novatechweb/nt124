@@ -1,5 +1,5 @@
 target extended-remote /dev/BlackMagicGDB
 # mon jtag_scan
 monitor swdp_scan
-monitor reset halt
+# monitor reset halt
 attach 1
