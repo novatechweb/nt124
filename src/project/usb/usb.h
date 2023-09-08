@@ -35,5 +35,6 @@ extern volatile uint32_t *unique_id_p;
 void usb_init(void);
 int nt124_get_config(void);
 int nt124_get_dtr(void);
+void usb_task(void);
 
 #endif /* __NT124_H_ */

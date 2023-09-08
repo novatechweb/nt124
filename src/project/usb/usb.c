@@ -452,7 +452,14 @@ void usb_init(void) {
 	
 	// setup the ISR
 	nvic_set_priority(USB_IRQ, IRQ_PRI_USB);
-	nvic_enable_irq(USB_IRQ);
+	nvic_disable_irq(USB_IRQ);
+}
+
+
+void usb_task(void) {
+	while(1) {
+		usbd_poll(usbdev);
+	}
 }
 
 
@@ -461,5 +468,7 @@ void usb_init(void) {
  */
 
 void USB_ISR(void) {
+	nvic_disable_irq(USB_IRQ);
 	usbd_poll(usbdev);
+	nvic_enable_irq(USB_IRQ);
 }
