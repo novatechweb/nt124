@@ -38,6 +38,10 @@
 #define SERIALNO_FLASH_LOCATION "12400000A0\0\0\0\0\0"
 #endif
 
+#define VERSION_MAJOR_TO_BCD(u) ((((u / 10) % 10) << 12) | ((u % 10) << 8))
+#define VERSION_MINOR_TO_BCD(u) ((((u / 10) % 10) << 4) | (u % 10))
+#define USB_DEVICE_VERSION (VERSION_MAJOR_TO_BCD(VERSION_MAJOR) | VERSION_MINOR_TO_BCD(VERSION_MINOR))
+
 extern struct uart_t uarts[];
 
 usbd_device * usbdev;
@@ -56,7 +60,7 @@ static const struct usb_device_descriptor dev = {
         .bMaxPacketSize0 = 64,
         .idVendor = 0x2aeb,
         .idProduct = 124,
-        .bcdDevice = 0x0100,
+        .bcdDevice = USB_DEVICE_VERSION,
         .iManufacturer = 1,
         .iProduct = 2,
         .iSerialNumber = 3,
