@@ -12,7 +12,6 @@
 #define USB_DATA_PORT  GPIOA
 #define USB_DATA_P_PIN GPIO12
 #define USB_DATA_N_PIN GPIO11
-#define USB_DRIVER stm32f103_usb_driver
 #define USB_IRQ    NVIC_USB_LP_CAN_RX0_IRQ
 /* re-enumerate pin */
 #define USB_ENUMERATE_PORT GPIOA
@@ -20,11 +19,13 @@
 
 volatile uint32_t *unique_id_p = (volatile uint32_t *)0x1FFFF7E8;
 
+/*
 void assert_boot_pin(void) {
 	// Set the DFU pin
 	gpio_set_mode(DFU_PORT, GPIO_MODE_OUTPUT_2_MHZ, GPIO_CNF_OUTPUT_PUSHPULL, DFU_PIN);
 	gpio_clear(DFU_PORT, DFU_PIN);
 }
+*/
 
 void usb_reset_hardware(void) {
 	rcc_peripheral_reset(&RCC_APB1RSTR,

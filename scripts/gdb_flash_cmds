@@ -1,0 +1,9 @@
+target extended-remote /dev/BlackMagicGDB
+# mon jtag_scan
+monitor swdp_scan
+attach 1
+#file project_01.elf
+load
+compare-sections
+q
+y

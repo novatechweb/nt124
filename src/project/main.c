@@ -15,6 +15,9 @@ main(int argc, char **argv) {
 	uart_init();
 	usb_init();
 
+	usb_task();
+
+	/* Should never get here */
 	while(1) {
 		__asm__("nop");
 	}
